@@ -9,5 +9,6 @@ pub const PT_NONE : PartType = PartType {
     col: Color::BLACK,
     behaviour: Skip,
     density: 0,
+    graphics: no_gfx,
     update: no_update
 };

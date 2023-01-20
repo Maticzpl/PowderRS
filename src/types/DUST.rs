@@ -9,10 +9,6 @@ pub const PT_DUST : PartType = PartType {
     col: Color::YELLOW,
     behaviour: Powder,
     density: 10,
-    update
+    graphics: no_gfx,
+    update: no_update,
 };
-
-
-pub fn update(pt : &mut Particle) {
-
-}

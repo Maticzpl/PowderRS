@@ -9,5 +9,6 @@ pub const PT_BRCK : PartType = PartType {
     col: Color::GRAY,
     behaviour: Solid,
     density: 20,
-    update: no_update
+    graphics: no_gfx,
+    update: no_update,
 };

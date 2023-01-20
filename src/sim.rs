@@ -11,7 +11,7 @@ pub const PT_EMPTY : Particle = Particle{p_type: PT_NONE.id, x: 0, y: 0};
 
 #[derive(Copy, Clone)]
 pub struct Particle {
-    pub p_type : u16,
+    pub p_type : u8,
     pub x: usize,
     pub y: usize
 }
@@ -59,14 +59,14 @@ impl Simulation {
         return Ok(());
     }
 
-    pub fn get_part(&mut self, id : usize) -> Result<&Particle,()> {
+    pub fn get_part(&self, id : usize) -> Result<&Particle,()> {
         if id >= self.parts.len() {
             return Err(());
         }
         return Ok(&self.parts[id]);
     }
 
-    pub fn get_pmap(&mut self, x : usize, y : usize) -> Result<&Particle,()> {
+    pub fn get_pmap(&self, x : usize, y : usize) -> Result<&Particle,()> {
         if x >= XRES || y >= YRES {
             return Err(());
         }
@@ -79,7 +79,7 @@ impl Simulation {
         return Ok(&self.parts[val - 1]);
     }
 
-    pub fn get_pmap_val(&mut self, x : usize, y : usize) -> usize{
+    pub fn get_pmap_val(&self, x : usize, y : usize) -> usize{
         if x >= XRES || y >= YRES {
             return 0;
         }
@@ -143,39 +143,36 @@ impl Simulation {
 
         let ran: i32 = get_random_value(0, 1);
 
-        if self.try_move(id, 0, 1) { return }
+        if self.try_move(id, 0, 1, true) { return }
         if ran == 1 {
-            if self.try_move(id, 1, 1) { return }
+            self.try_move(id, 1, 1, true);
         } else {
-            if self.try_move(id, -1, 1) { return }
+            self.try_move(id, -1, 1, true);
         }
     }
 
     fn liquid_move(&mut self, id : usize) {
         let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
-        let ran: i32 = get_random_value(0, 1);
 
-        if self.try_move(id, 0, 1) { return }
+        let ran: i32 = get_random_value(0, 1);
+        if self.try_move(id, 0, 1, true) { return }
         if ran == 1 {
-            if self.try_move(id, 1, 1) { return }
-            if self.try_move(id, 1, 0) { return }
+            self.try_move(id, 2, 0, false);
         } else {
-            if self.try_move(id, -1, 1) { return }
-            if self.try_move(id, -1, 0) { return }
+            self.try_move(id, -2, 0, false);
         }
     }
 
-    fn try_move(&mut self, i : usize, rx : isize, ry : isize) -> bool {
+    fn try_move(&mut self, i : usize, rx : isize, ry : isize, swap :bool) -> bool {
         let (x, y) = (self.parts[i].x as isize, self.parts[i].y as isize);
         let (nx, ny) = (x + rx, y + ry);
         if nx < 0 || nx >= XRES as isize || ny < 0 || ny >= YRES as isize {
-            //self.parts[i].p_type = 0;
             return false;
         }
         let occupying = self.get_pmap_val(nx as usize, ny as usize);
         if occupying != 0 {
-            if self.parts[occupying].get_type().density < self.parts[i].get_type().density {    //SWAP
+            if swap && self.parts[occupying].get_type().density < self.parts[i].get_type().density {    //SWAP
                 let (ox, oy) = (self.parts[occupying].x ,self.parts[occupying].y);
                 self.parts[occupying].x = self.parts[i].x;
                 self.parts[occupying].y = self.parts[i].y;
@@ -186,8 +183,20 @@ impl Simulation {
             }
             return false;
         }
+        //self.pmap[x  as usize + y  as usize * XRES] = 0;
+        self.pmap[nx as usize + ny as usize * XRES] = i;
+
         self.parts[i].x = nx as usize;
         self.parts[i].y = ny as usize;
         return true;
+    }
+
+    fn check_pmap(&mut self, i : usize, rx : isize, ry : isize) -> usize {
+        let (x, y) = (self.parts[i].x as isize, self.parts[i].y as isize);
+        let (nx, ny) = (x + rx, y + ry);
+        if nx < 0 || nx >= XRES as isize || ny < 0 || ny >= YRES as isize {
+            return 0;
+        }
+        return self.get_pmap_val(nx as usize, ny as usize);
     }
 }
