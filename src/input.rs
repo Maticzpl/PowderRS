@@ -1,9 +1,11 @@
 use raylib::prelude::*;
-use crate::renderer::Renderer;
+use crate::render::raylib_renderer::RaylibRenderer;
+use crate::render::renderer::Renderer;
 use crate::sim::{Particle, Simulation};
 use crate::types::*;
 
-pub fn handle_input(sim : &mut Simulation, ren: &Renderer) {
+
+pub fn handle_input(sim : &mut Simulation, ren: &RaylibRenderer) {
     let rayl = ren.get_handle();
 
     // Temporary stuff

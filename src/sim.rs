@@ -1,4 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
 use raylib::prelude::*;
 use crate::types::*;
 
@@ -33,10 +32,11 @@ impl Simulation {
         let mut pm = Vec::with_capacity(XYRES);
         pm.resize(XYRES, 0);
 
-        for i in 0..XYRES {
-            let (x, y) = (i % XRES, i / XRES);
-            p[i] = Particle {x, y, p_type:3};
-        }
+        // test for rendering only performance
+        // for i in 0..XYRES {
+        //     let (x, y) = (i % XRES, i / XRES);
+        //     p[i] = Particle {x, y, p_type:3};
+        // }
 
         Self {
             parts: p,
@@ -120,7 +120,7 @@ impl Simulation {
 
             let p_type = self.parts[i].get_type();
             if p_type.id != 0 {
-                match (p_type.behaviour) {
+                match p_type.behaviour {
                     PartBehaviour::Skip => {},
                     PartBehaviour::Solid => {
                         (p_type.update)(&mut self.parts[i]);
