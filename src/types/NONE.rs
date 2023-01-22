@@ -1,4 +1,3 @@
-use raylib::color::Color;
 use crate::types::*;
 use crate::sim::Particle;
 use crate::types::PartBehaviour::Skip;
@@ -6,7 +5,7 @@ use crate::types::PartBehaviour::Skip;
 pub const PT_NONE : PartType = PartType {
     id: 0,
     name: "NONE",
-    col: Color::BLACK,
+    col: [0,0,0],
     behaviour: Skip,
     density: 0,
     graphics: no_gfx,

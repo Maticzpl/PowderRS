@@ -1,5 +1,5 @@
-use raylib::prelude::*;
 use crate::types::*;
+use rand::prelude::*;
 
 pub const SCALE : usize = 1;
 pub const XRES : usize = 775 / SCALE;
@@ -7,12 +7,12 @@ pub const YRES : usize = 575 / SCALE;
 pub const XYRES : usize = XRES * YRES;
 pub const PT_EMPTY : Particle = Particle{p_type: PT_NONE.id, x: 0, y: 0};
 
-
-#[derive(Copy, Clone)]
+#[repr(C)]
+#[derive(Default, Copy, Clone)]
 pub struct Particle {
-    pub p_type : u8,
-    pub x: usize,
-    pub y: usize
+    pub p_type : u32,
+    pub x: u32,
+    pub y: u32
 }
 impl Particle {
     pub fn get_type(&self) -> PartType {
@@ -21,22 +21,28 @@ impl Particle {
 }
 
 pub struct Simulation {
-    pub parts : Vec<Particle>,
+    pub parts : Box<[Particle; XYRES]>,
     pub pmap : Vec<usize>, //2D array of particle indexes offset by 1 (0 is none)
     partCount : usize,
 }
 impl Simulation {
+    #[feature(box_syntax)]
     pub fn new() -> Self {
-        let mut p = Vec::with_capacity(XYRES);
-        p.resize(XYRES, PT_EMPTY);
+        let mut p : Box<[Particle; XYRES]> = box[PT_EMPTY; XYRES];
         let mut pm = Vec::with_capacity(XYRES);
         pm.resize(XYRES, 0);
 
-        // test for rendering only performance
-        // for i in 0..XYRES {
-        //     let (x, y) = (i % XRES, i / XRES);
-        //     p[i] = Particle {x, y, p_type:3};
-        // }
+        //test for rendering only performance
+        for i in 0..XYRES as u32 {
+            let (x, y) = (i % XRES as u32, i / XRES as u32);
+            p[i as usize] = Particle {x, y, p_type:3};
+            if x % 2 == 0 {
+                p[i as usize] = Particle {x, y, p_type:2};
+            }
+            if x % 5 == 0 {
+                p[i as usize] = Particle {x, y, p_type:1};
+            }
+        }
 
         Self {
             parts: p,
@@ -72,6 +78,10 @@ impl Simulation {
         return Ok(&self.parts[id]);
     }
 
+    pub fn get_part_count(&self) -> usize {
+        return self.partCount;
+    }
+
     pub fn get_pmap(&self, x : usize, y : usize) -> Result<&Particle,()> {
         if x >= XRES || y >= YRES {
             return Err(());
@@ -102,7 +112,7 @@ impl Simulation {
             }
 
             if self.parts[i].p_type != 0 {
-                let index = self.parts[i].x + (self.parts[i].y * XRES);
+                let index = self.parts[i].x + (self.parts[i].y * XRES as u32);
                 self.pmap[index as usize] = i;
                 counter += 1;
             }
@@ -147,10 +157,10 @@ impl Simulation {
     fn powder_move(&mut self, id : usize) {
         let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
-        let ran: i32 = get_random_value(0, 1);
+        let ran: bool = thread_rng().gen();
 
         if self.try_move(id, 0, 1, true) { return }
-        if ran == 1 {
+        if ran {
             self.try_move(id, 1, 1, true);
         } else {
             self.try_move(id, -1, 1, true);
@@ -161,9 +171,9 @@ impl Simulation {
         let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
 
-        let ran: i32 = get_random_value(0, 1);
+        let ran: bool = thread_rng().gen();
         if self.try_move(id, 0, 1, true) { return }
-        if ran == 1 {
+        if ran {
             self.try_move(id, 2, 0, false);
         } else {
             self.try_move(id, -2, 0, false);
@@ -192,8 +202,8 @@ impl Simulation {
         //self.pmap[x  as usize + y  as usize * XRES] = 0;
         self.pmap[nx as usize + ny as usize * XRES] = i;
 
-        self.parts[i].x = nx as usize;
-        self.parts[i].y = ny as usize;
+        self.parts[i].x = nx as u32;
+        self.parts[i].y = ny as u32;
         return true;
     }
 

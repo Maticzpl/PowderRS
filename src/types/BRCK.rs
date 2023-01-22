@@ -1,4 +1,3 @@
-use raylib::color::Color;
 use crate::types::*;
 use crate::sim::Particle;
 use crate::types::PartBehaviour::Solid;
@@ -6,7 +5,7 @@ use crate::types::PartBehaviour::Solid;
 pub const PT_BRCK : PartType = PartType {
     id: 1,
     name: "BRCK",
-    col: Color::GRAY,
+    col: [128,128,128],
     behaviour: Solid,
     density: 20,
     graphics: no_gfx,

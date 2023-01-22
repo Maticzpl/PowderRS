@@ -1,4 +1,3 @@
-use raylib::prelude::*;
 use crate::sim::{Particle, Simulation};
 
 pub mod NONE;
@@ -31,13 +30,13 @@ pub enum PartBehaviour {
 
 #[derive(Copy, Clone)]
 pub struct PartType {
-    pub id: u8,
+    pub id: u32,
     pub name: &'static str,
-    pub col: Color,
+    pub col: [u8; 3],
     pub behaviour: PartBehaviour,
     pub density: u16,
     pub update: fn(pt : &mut Particle),
-    pub graphics: fn(sim : &Simulation, pt : &Particle) -> Color
+    pub graphics: fn(sim : &Simulation, pt : &Particle) -> [u8;3]
 }
 impl PartType {
     fn find(name : &str) -> usize {
@@ -52,6 +51,6 @@ impl PartType {
 }
 
 pub fn no_update(pt : &mut Particle) {}
-pub fn no_gfx(sim : &Simulation, pt : &Particle) -> Color{
+pub fn no_gfx(sim : &Simulation, pt : &Particle) -> [u8; 3]{
     return pt.get_type().col;
 }
