@@ -32,6 +32,12 @@ impl Simulation {
         p.resize(XYRES, PT_EMPTY);
         let mut pm = Vec::with_capacity(XYRES);
         pm.resize(XYRES, 0);
+
+        for i in 0..XYRES {
+            let (x, y) = (i % XRES, i / XRES);
+            p[i] = Particle {x, y, p_type:3};
+        }
+
         Self {
             parts: p,
             pmap: pm,
