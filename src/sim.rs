@@ -4,7 +4,7 @@ use rand::prelude::*;
 pub const SCALE : usize = 1;
 pub const WINW: usize = 1024;
 pub const WINH: usize = 576;
-pub const UI_MARGIN: usize = 50;
+pub const UI_MARGIN: usize = 30;
 pub const XRES : usize = (WINW - UI_MARGIN) / SCALE;
 pub const YRES : usize = (WINH - UI_MARGIN) / SCALE;
 pub const XYRES : usize = XRES * YRES;
@@ -179,6 +179,15 @@ impl Simulation {
         let ran: bool = thread_rng().gen();
         if self.try_move(id, 0, 1, true) {
             return;
+        }
+        if ran {
+            if self.try_move(id, 1, 1, false) {
+                return;
+            }
+        } else {
+            if self.try_move(id, -1, 1, false) {
+                return;
+            }
         }
         if ran {
             self.try_move(id, 1, 0, false);

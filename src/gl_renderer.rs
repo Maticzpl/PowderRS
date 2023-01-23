@@ -12,7 +12,7 @@ use glium::uniforms::{EmptyUniforms, MagnifySamplerFilter, MinifySamplerFilter, 
 use glium::vertex::VertexBufferAny;
 use glium::vertex::VerticesSource::VertexBuffer;
 use crate::sim;
-use crate::sim::{Particle, Simulation, WINH, WINW, XRES, XYRES, YRES};
+use crate::sim::{Particle, Simulation, UI_MARGIN, WINH, WINW, XRES, XYRES, YRES};
 use std::time;
 use std::time::Instant;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
@@ -29,7 +29,8 @@ struct Vert {
 implement_vertex!(Vert, pos, tex_coords);
 
 pub struct GLRenderer<'a> {
-    pub should_close: bool,
+    pub camera_zoom: f32,
+    pub camera_pan: [f32; 2],
     display: Display,
     square: [Vert; 4],
     square_ind: [u32; 6],
@@ -40,7 +41,9 @@ pub struct GLRenderer<'a> {
     frame_start: Instant,
     counter: Instant,
     tex_filter: SamplerBehavior,
-    camera_matrix: Matrix4<f32>,
+    proj_matrix: Matrix4<f32>,
+    pub view_matrix: Matrix4<f32>,
+    pub model_matrix: Matrix4<f32>,
 }
 
 impl GLRenderer<'_> {
@@ -57,23 +60,24 @@ impl GLRenderer<'_> {
 
         let display = Display::new(wb, cb, &event_loop).unwrap();
 
+        let (w,h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
         let mut square : [Vert; 4] = [
             Vert{
-                pos: [-1 as f32, 1 as f32],
+                pos: [-w as f32, h as f32],
                 tex_coords: [0f32, 1f32]
             },
             Vert{
-                pos: [1 as f32, 1 as f32],
+                pos: [w as f32, h as f32],
                 tex_coords: [1f32, 1f32]
             },
             Vert
             {
-                pos: [1 as f32, -1 as f32],
+                pos: [w as f32, -h as f32],
                 tex_coords: [1f32, 0f32]
             },
             Vert
             {
-                pos: [-1 as f32, -1 as f32],
+                pos: [-w as f32, -h as f32],
                 tex_coords: [0f32, 0f32]
             }
         ];
@@ -101,14 +105,10 @@ impl GLRenderer<'_> {
 
         let mut draw_params : DrawParameters = DrawParameters::default();
 
-        let (w,h) = (XRES as f32 / 2.0, YRES as f32 / 2.0);
-        let camera_matrix : Matrix4<f32>; //pvm
-        let proj_matrix : Matrix4<f32> = cgmath::ortho(-1.0, 1.0, 1.0, -1.0, -1.0, 1.0);
-        let view_matrix : Matrix4<f32> = Matrix4::identity(); 
-        let model_matrix : Matrix4<f32> = Matrix4::identity();
-
-        camera_matrix = proj_matrix * view_matrix * model_matrix;
-
+        let (w,h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
+        let proj_matrix : Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
+        let model_matrix : Matrix4<f32> = Matrix4::from_translation(Vector3{ x: -((UI_MARGIN / 2) as f32), y: -((UI_MARGIN / 2) as f32), z:0.0 }) *
+            Matrix4::from_nonuniform_scale(XRES as f32/WINW as f32, YRES as f32/WINH as f32, 1.0);
 
         let tex_filter = uniforms::SamplerBehavior {
             minify_filter: MinifySamplerFilter::Nearest,
@@ -116,10 +116,9 @@ impl GLRenderer<'_> {
             ..Default::default()
         };
 
-
-
         (Self {
-            should_close: false,
+            camera_zoom: 1.0,
+            camera_pan: [WINW as f32 / 2.0, WINH as f32 / 2.0],
             display,
             square,
             square_ind,
@@ -130,7 +129,9 @@ impl GLRenderer<'_> {
             frame_start: Instant::now(),
             counter: Instant::now(),
             tex_filter,
-            camera_matrix
+            proj_matrix,
+            view_matrix: Matrix4::identity(),
+            model_matrix
         }, event_loop)
     }
 
@@ -143,8 +144,8 @@ impl GLRenderer<'_> {
         }
         self.frame_start = Instant::now();
 
-        let mut tex_data = vec![vec![(50u8, 0u8, 0u8); XRES]; YRES];
 
+        let mut tex_data = vec![vec![(3u8, 0u8, 0u8); XRES]; YRES];
         let mut counter = 0;
         for i in 0..sim.parts.len() {
             if counter >= sim.get_part_count() {
@@ -159,10 +160,14 @@ impl GLRenderer<'_> {
         }
 
 
+        let mut view_matrix = Matrix4::from_scale(self.camera_zoom);
+        self.view_matrix = view_matrix;
+        let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
+
         let mut tex : Texture2d = Texture2d::new(&self.display, tex_data).expect("Texture creation failed");
         let uniforms = uniform! {
             tex: glium::uniforms::Sampler(&tex, self.tex_filter),
-            pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(self.camera_matrix)
+            pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix)
         };
 
         let mut frame = self.display.draw();
@@ -183,7 +188,7 @@ uniform mat4 pvm;
 
 void main()
 {
-    gl_Position = vec4(pos, 0.0, 1.0) * pvm;
+    gl_Position = pvm * vec4(pos, 0.0, 1.0);
     v_tex_coords = tex_coords;
 }
 "#;
