@@ -2,13 +2,16 @@ use crate::types::*;
 use rand::prelude::*;
 
 pub const SCALE : usize = 1;
-pub const XRES : usize = 775 / SCALE;
-pub const YRES : usize = 575 / SCALE;
+pub const WINW: usize = 1024;
+pub const WINH: usize = 576;
+pub const UI_MARGIN: usize = 50;
+pub const XRES : usize = (WINW - UI_MARGIN) / SCALE;
+pub const YRES : usize = (WINH - UI_MARGIN) / SCALE;
 pub const XYRES : usize = XRES * YRES;
 pub const PT_EMPTY : Particle = Particle{p_type: PT_NONE.id, x: 0, y: 0};
 
 #[repr(C)]
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Particle {
     pub p_type : u32,
     pub x: u32,
@@ -23,7 +26,7 @@ impl Particle {
 pub struct Simulation {
     pub parts : Box<[Particle; XYRES]>,
     pub pmap : Vec<usize>, //2D array of particle indexes offset by 1 (0 is none)
-    partCount : usize,
+    part_count: usize,
 }
 impl Simulation {
     #[feature(box_syntax)]
@@ -32,30 +35,25 @@ impl Simulation {
         let mut pm = Vec::with_capacity(XYRES);
         pm.resize(XYRES, 0);
 
-        //test for rendering only performance
-        for i in 0..XYRES as u32 {
-            let (x, y) = (i % XRES as u32, i / XRES as u32);
-            p[i as usize] = Particle {x, y, p_type:3};
-            if x % 2 == 0 {
-                p[i as usize] = Particle {x, y, p_type:2};
-            }
-            if x % 5 == 0 {
-                p[i as usize] = Particle {x, y, p_type:1};
-            }
-        }
-
         Self {
             parts: p,
             pmap: pm,
-            partCount : 0
+            part_count: 0
         }
     }
 
     pub fn add_part(&mut self, part : Particle) -> Result<usize, ()> {
+        if part.p_type == 0 {
+            return Err(());
+        }
+        if self.get_pmap_val(part.x as usize, part.y as usize) != 0 {
+            return Err(());
+        }
+
         for i in 0..self.parts.len() {
             if self.parts[i].p_type == 0 {
                 self.parts[i] = part;
-                self.partCount += 1;
+                self.part_count += 1;
                 return Ok(i);
             }
         }
@@ -66,8 +64,9 @@ impl Simulation {
         if id >= self.parts.len() || self.parts[id].p_type == 0 {
             return Err(());
         }
-        self.parts[id].p_type = PT_NONE.id;
-        self.partCount -= 1;
+        self.pmap[self.parts[id].x as usize + (self.parts[id].y as usize * XRES)] = 0;
+        self.parts[id] = PT_EMPTY;
+        self.part_count -= 1;
         return Ok(());
     }
 
@@ -79,7 +78,7 @@ impl Simulation {
     }
 
     pub fn get_part_count(&self) -> usize {
-        return self.partCount;
+        return self.part_count;
     }
 
     pub fn get_pmap(&self, x : usize, y : usize) -> Result<&Particle,()> {
@@ -95,10 +94,12 @@ impl Simulation {
         return Ok(&self.parts[val - 1]);
     }
 
+    // not adjusted for 0
     pub fn get_pmap_val(&self, x : usize, y : usize) -> usize{
         if x >= XRES || y >= YRES {
             return 0;
         }
+
         return self.pmap[x+(y*XRES)];
     }
 
@@ -107,15 +108,18 @@ impl Simulation {
 
         self.pmap.fill(0);
         for i in 0..self.parts.len() {
-            if counter >= self.partCount {
-                break;
-            }
+            // if counter >= self.partCount {
+            //     break;
+            // }
 
             if self.parts[i].p_type != 0 {
                 let index = self.parts[i].x + (self.parts[i].y * XRES as u32);
-                self.pmap[index as usize] = i;
+                self.pmap[index as usize] = i + 1;
                 counter += 1;
             }
+        }
+        if counter != self.part_count {
+            println!("Counter out of sync: {} expected {}", self.part_count, counter);
         }
     }
 
@@ -123,13 +127,13 @@ impl Simulation {
         self.update_p_map();
         let mut counter = 0;
 
-        for i in 0..self.parts.len() {
-            if counter >= self.partCount {
+        for i in (0..self.parts.len()).rev() {
+            if counter >= self.part_count {
                 break;
             }
 
             let p_type = self.parts[i].get_type();
-            if p_type.id != 0 {
+            if self.parts[i].p_type != 0 {
                 match p_type.behaviour {
                     PartBehaviour::Skip => {},
                     PartBehaviour::Solid => {
@@ -159,7 +163,9 @@ impl Simulation {
 
         let ran: bool = thread_rng().gen();
 
-        if self.try_move(id, 0, 1, true) { return }
+        if self.try_move(id, 0, 1, true) {
+            return;
+        }
         if ran {
             self.try_move(id, 1, 1, true);
         } else {
@@ -170,26 +176,36 @@ impl Simulation {
     fn liquid_move(&mut self, id : usize) {
         let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
-
         let ran: bool = thread_rng().gen();
-        if self.try_move(id, 0, 1, true) { return }
+        if self.try_move(id, 0, 1, true) {
+            return;
+        }
         if ran {
-            self.try_move(id, 2, 0, false);
+            self.try_move(id, 1, 0, false);
         } else {
-            self.try_move(id, -2, 0, false);
+            self.try_move(id, -1, 0, false);
         }
     }
 
     fn try_move(&mut self, i : usize, rx : isize, ry : isize, swap :bool) -> bool {
         let (x, y) = (self.parts[i].x as isize, self.parts[i].y as isize);
         let (nx, ny) = (x + rx, y + ry);
+
         if nx < 0 || nx >= XRES as isize || ny < 0 || ny >= YRES as isize {
-            return false;
+            self.kill_part(i).expect("Invalid kill");
+            return true; // return false if edges collide
         }
-        let occupying = self.get_pmap_val(nx as usize, ny as usize);
+        let mut occupying = self.get_pmap_val(nx as usize, ny as usize);
         if occupying != 0 {
+            occupying -= 1;
+            if self.parts[occupying].p_type == 0 {
+                print!("s");
+            }
             if swap && self.parts[occupying].get_type().density < self.parts[i].get_type().density {    //SWAP
                 let (ox, oy) = (self.parts[occupying].x ,self.parts[occupying].y);
+                self.pmap[ x as usize +  y as usize * XRES] = occupying + 1;
+                self.pmap[ox as usize + oy as usize * XRES] = i + 1;
+
                 self.parts[occupying].x = self.parts[i].x;
                 self.parts[occupying].y = self.parts[i].y;
                 self.parts[i].x = ox;
@@ -199,8 +215,8 @@ impl Simulation {
             }
             return false;
         }
-        //self.pmap[x  as usize + y  as usize * XRES] = 0;
-        self.pmap[nx as usize + ny as usize * XRES] = i;
+        self.pmap[nx as usize + ny as usize * XRES] = i + 1;
+        self.pmap[ x as usize +  y as usize * XRES] = 0;
 
         self.parts[i].x = nx as u32;
         self.parts[i].y = ny as u32;

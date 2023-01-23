@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 glium = "0.32.1"
+cgmath = "0.18.0"
 rand = "0.8.5"
 
 [profile.dev]
-opt-level = 1
+#opt-level = 1
