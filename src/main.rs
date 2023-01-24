@@ -61,7 +61,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         y = y.min((YRES - size) as usize);
 
         for i in 0..pow(size, 2) {
-            let val = sim.get_pmap_val((x + i % size) as usize, (y + i / size) as usize);
+            let val = sim.get_pmap_val((x - hs + i % size) as usize, (y - hs + i / size) as usize);
             if val != 0 {
                 sim.kill_part(val - 1);
             }
@@ -169,7 +169,7 @@ fn main() {
                         }
                     }
                     WindowEvent::MouseWheel {
-                        delta: LineDelta(x, y),
+                        delta: LineDelta(_x, y),
                         ..
                     } => {
                         input.scroll = y;
@@ -185,12 +185,12 @@ fn main() {
                         input: KeyboardInput {
                             virtual_keycode: key,
                             state: state,
-                            scancode: scan,
+                            scancode: _scan,
                             ..
                         },
                         ..
                     } => {
-                        //println!("{:?} k-s {}",key,scan);
+                        //println!("{:?} k-s {}",key,_scan);
 
                         if key.is_some() {
                             let key = key.unwrap();

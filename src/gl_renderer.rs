@@ -20,6 +20,7 @@ use cgmath::num_traits::pow;
 use glium::buffer::{Buffer, BufferMode, BufferType};
 use glium::buffer::BufferType::UniformBuffer;
 use glium::texture::{Dimensions, MipmapsOption, Texture2dDataSource, UncompressedFloatFormat};
+use crate::gui::GUI;
 
 #[derive(Copy, Clone)]
 struct Vert {
@@ -32,6 +33,7 @@ implement_vertex!(Vert, pos, tex_coords);
 pub struct GLRenderer<'a> {
     pub camera_zoom: f32,
     pub camera_pan: Vector2<f32>,
+    pub gui : GUI<'a, 'a>,
     display: Display,
     square: [Vert; 4],
     square_ind: [u32; 6],
@@ -120,6 +122,7 @@ impl GLRenderer<'_> {
         (Self {
             camera_zoom: 1.0,
             camera_pan: Vector2::from([0.0, 0.0]),
+            gui: GUI::new(&display),
             display,
             square,
             square_ind,
@@ -177,6 +180,7 @@ impl GLRenderer<'_> {
         let mut frame = self.display.draw();
         frame.clear_color(0.0,0.0,0.0,0.0);
         frame.draw(&self.vert_buffer, &self.ind_buffer, &self.program, &uniforms, &self.draw_params).expect("Draw error");
+        self.gui.draw_gui(&self.display, &mut frame);
 
         frame.finish().expect("Swap buffers error");
     }
