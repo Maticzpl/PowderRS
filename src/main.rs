@@ -4,6 +4,7 @@
 mod sim;
 mod types;
 mod gl_renderer;
+mod gui;
 
 use std::collections::{HashMap, HashSet};
 use std::iter::Map;
@@ -18,12 +19,13 @@ use glium::glutin::platform::unix::x11::ffi::KeyCode;
 use rand::{thread_rng};
 use crate::gl_renderer::GLRenderer;
 use crate::types::*;
-use crate::sim::{Particle, Simulation, WINH, WINW};
+use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
 
 struct TickFnState {
     pan_started: bool,
     pan_start_pos: Vector2<f32>,
     pan_original: Vector2<f32>,
+    brush_size: i32,
 }
 
 fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
@@ -41,17 +43,25 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
 
 
     if input.mouse_buttons.get(&MouseButton::Left).is_some_and(|b| *b) {
-        let (x, y) = (mouse_pos.x as u32, mouse_pos.y as u32);
+        let size = tick_state.brush_size as usize;
+        let hs = size as usize / 2usize;
+        let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
+        x = x.clamp(hs, (XRES - hs - 1) as usize);
+        y = y.clamp(hs, (YRES - hs - 1) as usize);
 
-        for i in 0..25 {
-            sim.add_part(Particle{p_type:3, x: x + i%5, y: y + i/5});
+        for i in 0..pow(size, 2) {
+            sim.add_part(Particle { p_type: 2, x: (x - hs + i / size) as u32, y: (y - hs + i % size) as u32 });
         }
     }
     if input.mouse_buttons.get(&MouseButton::Right).is_some_and(|b| *b) {
-        let (x, y) = (mouse_pos.x as u32, mouse_pos.y as u32);
+        let size = tick_state.brush_size as usize;
+        let hs = size as usize / 2usize;
+        let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
+        x = x.min((XRES - size) as usize);
+        y = y.min((YRES - size) as usize);
 
-        for i in 0..25 {
-            let val = sim.get_pmap_val((x + i % 5) as usize, (y + i / 5) as usize);
+        for i in 0..pow(size, 2) {
+            let val = sim.get_pmap_val((x + i % size) as usize, (y + i / size) as usize);
             if val != 0 {
                 sim.kill_part(val - 1);
             }
@@ -92,7 +102,12 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         ren.camera_pan += (res - mouse_pos).truncate().truncate();
 
         input.scroll = 0.0;
+    } else if input.scroll != 0.0 {
+        tick_state.brush_size += input.scroll.signum() as i32;
+        tick_state.brush_size = tick_state.brush_size.clamp(1 ,20);
+        input.scroll = 0.0;
     }
+
     ren.draw(&sim);
 }
 
@@ -129,6 +144,7 @@ fn main() {
         pan_started: false,
         pan_start_pos: Vector2 {x: 0.0, y: 0.0},
         pan_original: Vector2::from([0.0, 0.0]),
+        brush_size: 5,
     };
 
     event_loop.run(move |event, _, flow| {
@@ -176,11 +192,13 @@ fn main() {
                     } => {
                         //println!("{:?} k-s {}",key,scan);
 
-                        let key = key.unwrap();
-                        if state == Pressed {
-                            input.keys.insert(key, true);
-                        } else {
-                            input.keys.insert(key, false);
+                        if key.is_some() {
+                            let key = key.unwrap();
+                            if state == Pressed {
+                                input.keys.insert(key, true);
+                            } else {
+                                input.keys.insert(key, false);
+                            }
                         }
                     },
                     WindowEvent::Resized {

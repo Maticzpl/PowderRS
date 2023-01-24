@@ -146,7 +146,7 @@ impl GLRenderer<'_> {
         self.frame_start = Instant::now();
 
 
-        let mut tex_data = vec![vec![(3u8, 0u8, 0u8); XRES]; YRES];
+        let mut tex_data = vec![vec![(1u8, 0u8, 0u8); XRES]; YRES];
         let mut counter = 0;
         for i in 0..sim.parts.len() {
             if counter >= sim.get_part_count() {
