@@ -50,7 +50,7 @@ impl PartType {
     }
 }
 
-pub fn no_update(pt : &mut Particle) {}
-pub fn no_gfx(sim : &Simulation, pt : &Particle) -> [u8; 3]{
+pub fn no_update(_pt : &mut Particle) {}
+pub fn no_gfx(_sim : &Simulation, pt : &Particle) -> [u8; 3]{
     return pt.get_type().col;
 }

@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::sim::Particle;
+
 use crate::types::PartBehaviour::Skip;
 
 pub const PT_NONE : PartType = PartType {

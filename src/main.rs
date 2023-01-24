@@ -6,19 +6,19 @@ mod types;
 mod gl_renderer;
 mod gui;
 
-use std::collections::{HashMap, HashSet};
-use std::iter::Map;
-use std::ops::Index;
+use std::collections::{HashMap};
+
+
 use cgmath::num_traits::pow;
-use cgmath::{Matrix3, Matrix4, MetricSpace, Transform, Vector2, Vector3, Vector4, VectorSpace, Zero};
+use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glium::glutin::event::{ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use glium::glutin::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 use glium::glutin::event::ElementState::Pressed;
 use glium::glutin::event::MouseScrollDelta::LineDelta;
-use glium::glutin::platform::unix::x11::ffi::KeyCode;
-use rand::{thread_rng};
+
+
 use crate::gl_renderer::GLRenderer;
-use crate::types::*;
+
 use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
 
 struct TickFnState {
@@ -33,7 +33,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
 
     // Correct mouse pos
     let mut mouse_pos = Vector4 {x: input.mouse_pos.x as f32, y: input.mouse_pos.y as f32, z: 0.0, w : 1.0};
-    let (mut sx, mut sy) = (input.win_size.width as f32 / WINW as f32, input.win_size.height as f32 / WINH as f32);
+    let (sx, sy) = (input.win_size.width as f32 / WINW as f32, input.win_size.height as f32 / WINH as f32);
     let mouse_screen_pos = Vector4 {x : mouse_pos.x / sx, y: mouse_pos.y / sy, z: 0.0, w: 1.0};
     mouse_pos =
         Matrix4::from_translation(Vector3 {x:  (WINW as f32/2.0), y:  (WINH as f32/2.0), z: 0.0}) *
@@ -63,7 +63,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         for i in 0..pow(size, 2) {
             let val = sim.get_pmap_val((x - hs + i % size) as usize, (y - hs + i / size) as usize);
             if val != 0 {
-                sim.kill_part(val - 1);
+                sim.kill_part(val - 1).expect("Tried to kill invalid part");
             }
         }
     }
@@ -76,8 +76,8 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
             tick_state.pan_started = true;
             tick_state.pan_original = Vector2::from(ren.camera_pan);
         } else {
-            ren.camera_pan.x = (tick_state.pan_original.x + (x - tick_state.pan_start_pos.x) / ren.camera_zoom);
-            ren.camera_pan.y = (tick_state.pan_original.y + (y - tick_state.pan_start_pos.y) / ren.camera_zoom);
+            ren.camera_pan.x = tick_state.pan_original.x + (x - tick_state.pan_start_pos.x) / ren.camera_zoom;
+            ren.camera_pan.y = tick_state.pan_original.y + (y - tick_state.pan_start_pos.y) / ren.camera_zoom;
         }
     } else {
         tick_state.pan_started = false;
@@ -113,8 +113,8 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
 
 fn main() {
     let mut sim = Simulation::new();
-    let mut ren = GLRenderer::new(&sim);
-    let mut event_loop = ren.1;
+    let ren = GLRenderer::new(&sim);
+    let event_loop = ren.1;
     let mut ren = ren.0;
 
     let mut input: InputData = InputData {
@@ -158,8 +158,8 @@ fn main() {
                         flow.set_exit();
                     }
                     WindowEvent::MouseInput {
-                        button: button,
-                        state: state,
+                        button,
+                        state,
                         ..
                     } => {
                         if state == Pressed {
@@ -184,7 +184,7 @@ fn main() {
                     WindowEvent::KeyboardInput {
                         input: KeyboardInput {
                             virtual_keycode: key,
-                            state: state,
+                            state,
                             scancode: _scan,
                             ..
                         },

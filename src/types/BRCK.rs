@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::sim::Particle;
+
 use crate::types::PartBehaviour::Solid;
 
 pub const PT_BRCK : PartType = PartType {

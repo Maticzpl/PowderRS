@@ -1,2 +1,2 @@
 # PowderRS
-Im doing tpt clones in every new lang i learn now :P
+I'm doing tpt clones in every new lang I learn now :P

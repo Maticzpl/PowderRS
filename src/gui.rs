@@ -1,4 +1,4 @@
-use glium::backend::Facade;
+
 use glium::{Display, Surface};
 use glium_glyph::glyph_brush::ab_glyph::FontRef;
 use glium_glyph::{GlyphBrush, GlyphBrushBuilder};
@@ -15,7 +15,7 @@ impl GUI<'_, '_> {
         let ttf: &[u8] = include_bytes!("../ChakraPetch-Regular.ttf");
         let font = FontRef::try_from_slice(ttf).unwrap();
 
-        let mut glyph_brush = GlyphBrushBuilder::using_font(font).build(display);
+        let glyph_brush = GlyphBrushBuilder::using_font(font).build(display);
 
        return Self {
            glyph_brush
@@ -23,7 +23,7 @@ impl GUI<'_, '_> {
     }
     //pub fn draw_gui<D : Sized, F : Surface>(&mut self, display: &D, mut frame: F)
 
-    pub fn draw_gui<F : Surface>(&mut self, display: &Display, mut frame: &mut F) {
+    pub fn draw_gui<F : Surface>(&mut self, display: &Display, frame: &mut F) {
 
         self.glyph_brush.queue(
             Section::default()

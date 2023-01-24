@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::sim::Particle;
+
 use crate::types::PartBehaviour::Powder;
 
 pub const PT_DUST : PartType = PartType {

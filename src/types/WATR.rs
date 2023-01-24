@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::sim::{Particle, Simulation, XRES, YRES};
+
 use crate::types::PartBehaviour::Fluid;
 
 pub const PT_WATR : PartType = PartType {

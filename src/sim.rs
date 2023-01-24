@@ -29,9 +29,8 @@ pub struct Simulation {
     part_count: usize,
 }
 impl Simulation {
-    #[feature(box_syntax)]
     pub fn new() -> Self {
-        let mut p : Box<[Particle; XYRES]> = box[PT_EMPTY; XYRES];
+        let p : Box<[Particle; XYRES]> = box[PT_EMPTY; XYRES];
         let mut pm = Vec::with_capacity(XYRES);
         pm.resize(XYRES, 0);
 
@@ -42,22 +41,22 @@ impl Simulation {
         }
     }
 
-    pub fn add_part(&mut self, part : Particle) -> Result<usize, ()> {
+    pub fn add_part(&mut self, part : Particle) -> Option<usize> {
         if part.p_type == 0 {
-            return Err(());
+            return None;
         }
         if self.get_pmap_val(part.x as usize, part.y as usize) != 0 {
-            return Err(());
+            return None;
         }
 
         for i in 0..self.parts.len() {
             if self.parts[i].p_type == 0 {
                 self.parts[i] = part;
                 self.part_count += 1;
-                return Ok(i);
+                return Some(i);
             }
         }
-        return Err(());
+        return None;
     }
 
     pub fn kill_part(&mut self, id : usize) -> Result<(),()> {
@@ -159,7 +158,7 @@ impl Simulation {
     }
 
     fn powder_move(&mut self, id : usize) {
-        let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
+        let (_x, _y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
         let ran: bool = thread_rng().gen();
 
@@ -174,7 +173,7 @@ impl Simulation {
     }
 
     fn liquid_move(&mut self, id : usize) {
-        let (x, y) = (self.parts[id].x as i32, self.parts[id].y as i32);
+        let (_x, _y) = (self.parts[id].x as i32, self.parts[id].y as i32);
 
         let ran: bool = thread_rng().gen();
         if self.try_move(id, 0, 1, true) {
@@ -230,14 +229,5 @@ impl Simulation {
         self.parts[i].x = nx as u32;
         self.parts[i].y = ny as u32;
         return true;
-    }
-
-    fn check_pmap(&mut self, i : usize, rx : isize, ry : isize) -> usize {
-        let (x, y) = (self.parts[i].x as isize, self.parts[i].y as isize);
-        let (nx, ny) = (x + rx, y + ry);
-        if nx < 0 || nx >= XRES as isize || ny < 0 || ny >= YRES as isize {
-            return 0;
-        }
-        return self.get_pmap_val(nx as usize, ny as usize);
     }
 }
