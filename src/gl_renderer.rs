@@ -15,7 +15,8 @@ use crate::sim;
 use crate::sim::{Particle, Simulation, UI_MARGIN, WINH, WINW, XRES, XYRES, YRES};
 use std::time;
 use std::time::Instant;
-use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
+use cgmath::{Matrix4, Point3, SquareMatrix, Vector2, Vector3};
+use cgmath::num_traits::pow;
 use glium::buffer::{Buffer, BufferMode, BufferType};
 use glium::buffer::BufferType::UniformBuffer;
 use glium::texture::{Dimensions, MipmapsOption, Texture2dDataSource, UncompressedFloatFormat};
@@ -30,7 +31,7 @@ implement_vertex!(Vert, pos, tex_coords);
 
 pub struct GLRenderer<'a> {
     pub camera_zoom: f32,
-    pub camera_pan: [f32; 2],
+    pub camera_pan: Vector2<f32>,
     display: Display,
     square: [Vert; 4],
     square_ind: [u32; 6],
@@ -118,7 +119,7 @@ impl GLRenderer<'_> {
 
         (Self {
             camera_zoom: 1.0,
-            camera_pan: [WINW as f32 / 2.0, WINH as f32 / 2.0],
+            camera_pan: Vector2::from([0.0, 0.0]),
             display,
             square,
             square_ind,
@@ -160,7 +161,10 @@ impl GLRenderer<'_> {
         }
 
 
-        let mut view_matrix = Matrix4::from_scale(self.camera_zoom);
+        let mut view_matrix =
+            Matrix4::from_scale(self.camera_zoom) *
+            Matrix4::from_translation(Vector3{x:self.camera_pan.x, y:self.camera_pan.y, z:0.0});
+
         self.view_matrix = view_matrix;
         let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
 

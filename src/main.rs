@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter::Map;
 use std::ops::Index;
 use cgmath::num_traits::pow;
-use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4, Zero};
+use cgmath::{Matrix3, Matrix4, MetricSpace, Transform, Vector2, Vector3, Vector4, VectorSpace, Zero};
 use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glium::glutin::event::{ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use glium::glutin::event::ElementState::Pressed;
@@ -20,28 +20,35 @@ use crate::gl_renderer::GLRenderer;
 use crate::types::*;
 use crate::sim::{Particle, Simulation, WINH, WINW};
 
-fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData) {
+struct TickFnState {
+    pan_started: bool,
+    pan_start_pos: Vector2<f32>,
+    pan_original: Vector2<f32>,
+}
+
+fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
     sim.step();
 
-    let mut pos = Vector4 {x: input.mouse_pos.x as f32, y: input.mouse_pos.y as f32, z: 0.0, w : 1.0};
+    // Correct mouse pos
+    let mut mouse_pos = Vector4 {x: input.mouse_pos.x as f32, y: input.mouse_pos.y as f32, z: 0.0, w : 1.0};
     let (mut sx, mut sy) = (input.win_size.width as f32 / WINW as f32, input.win_size.height as f32 / WINH as f32);
-    pos = Vector4 {x : pos.x / sx, y: pos.y / sy, z: 0.0, w: 1.0};
-    pos = Matrix4::from_translation(Vector3 {x: ren.camera_pan[0], y: ren.camera_pan[1], z: 0.0}) *
+    let mouse_screen_pos = Vector4 {x : mouse_pos.x / sx, y: mouse_pos.y / sy, z: 0.0, w: 1.0};
+    mouse_pos =
+        Matrix4::from_translation(Vector3 {x:  (WINW as f32/2.0), y:  (WINH as f32/2.0), z: 0.0}) *
         ren.view_matrix.inverse_transform().expect("") *
-        Matrix4::from_translation(Vector3 {x: -ren.camera_pan[0], y: -ren.camera_pan[1], z: 0.0}) *
-        pos;
-
+        Matrix4::from_translation(Vector3 {x: -(WINW as f32/2.0), y: -(WINH as f32/2.0), z: 0.0}) *
+        mouse_screen_pos;
 
 
     if input.mouse_buttons.get(&MouseButton::Left).is_some_and(|b| *b) {
-        let (x, y) = (pos.x as u32, pos.y as u32);
+        let (x, y) = (mouse_pos.x as u32, mouse_pos.y as u32);
 
         for i in 0..25 {
             sim.add_part(Particle{p_type:3, x: x + i%5, y: y + i/5});
         }
     }
     if input.mouse_buttons.get(&MouseButton::Right).is_some_and(|b| *b) {
-        let (x, y) = (pos.x as u32, pos.y as u32);
+        let (x, y) = (mouse_pos.x as u32, mouse_pos.y as u32);
 
         for i in 0..25 {
             let val = sim.get_pmap_val((x + i % 5) as usize, (y + i / 5) as usize);
@@ -51,14 +58,41 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData) {
         }
     }
 
-    if input.keys.get(&VirtualKeyCode::LControl).is_some_and(|b| *b)
-        &&
-        input.scroll != 0.0 {
-        ren.camera_zoom += input.scroll / 10.0 * (ren.camera_zoom*2.0);
-        ren.camera_zoom = ren.camera_zoom.clamp(1.0, 10.0);
-        input.scroll = 0.0;
+
+    if input.mouse_buttons.get(&MouseButton::Middle).is_some_and(|b| *b) {
+        let (x, y) = (mouse_screen_pos.x as f32, mouse_screen_pos.y as f32);
+        if !tick_state.pan_started {
+            tick_state.pan_start_pos = Vector2 {x, y};
+            tick_state.pan_started = true;
+            tick_state.pan_original = Vector2::from(ren.camera_pan);
+        } else {
+            ren.camera_pan.x = (tick_state.pan_original.x + (x - tick_state.pan_start_pos.x) / ren.camera_zoom);
+            ren.camera_pan.y = (tick_state.pan_original.y + (y - tick_state.pan_start_pos.y) / ren.camera_zoom);
+        }
+    } else {
+        tick_state.pan_started = false;
     }
 
+
+    if input.keys.get(&VirtualKeyCode::LControl).is_some_and(|b| *b)
+        && input.scroll != 0.0 {
+
+        let change = input.scroll / 10.0 * (ren.camera_zoom*2.0);
+        let prev_zoom = ren.camera_zoom.clone();
+        ren.camera_zoom += change;
+        ren.camera_zoom = ren.camera_zoom.clamp(1.0, 15.0);
+        let res =
+            Matrix4::from_translation( Vector3::from([(WINW/2) as f32, (WINH/2) as f32, 0.0])) *
+            Matrix4::from_translation(-Vector3{x:ren.camera_pan.x, y:ren.camera_pan.y, z:0.0}) *
+            Matrix4::from_scale(prev_zoom/ren.camera_zoom) *
+            Matrix4::from_translation(Vector3{x:ren.camera_pan.x, y:ren.camera_pan.y, z:0.0}) *
+            Matrix4::from_translation(-Vector3::from([(WINW/2) as f32, (WINH/2) as f32, 0.0])) *
+            mouse_pos;
+
+        ren.camera_pan += (res - mouse_pos).truncate().truncate();
+
+        input.scroll = 0.0;
+    }
     ren.draw(&sim);
 }
 
@@ -89,6 +123,13 @@ fn main() {
         sim.add_part(Particle{p_type:1, x: 0, y: 450-i});
         sim.add_part(Particle{p_type:1, x: 400, y: 450-i});
     }
+    sim.add_part(Particle{p_type:1, x: (WINW / 2) as u32, y: (WINH / 2) as u32 });
+
+    let mut tick_state = TickFnState {
+        pan_started: false,
+        pan_start_pos: Vector2 {x: 0.0, y: 0.0},
+        pan_original: Vector2::from([0.0, 0.0]),
+    };
 
     event_loop.run(move |event, _, flow| {
         match event {
@@ -152,7 +193,7 @@ fn main() {
                 }
             }
             Event::MainEventsCleared => {
-                tick(&mut sim, &mut ren, &mut input);
+                tick(&mut sim, &mut ren, &mut input, &mut tick_state);
             },
             _ => {}
 
