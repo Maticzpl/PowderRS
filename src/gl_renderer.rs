@@ -16,14 +16,10 @@ use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
 use std::time::Instant;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
-
-
-
-
 use crate::gui::GUI;
 
 #[derive(Copy, Clone)]
-struct Vert {
+pub struct Vert {
     pos: [f32; 2],
     tex_coords: [f32; 2],
 }
@@ -40,8 +36,10 @@ pub struct GLRenderer<'a> {
     program: Program,
     draw_params: DrawParameters<'a>,
     frame_start: Instant,
-    counter: Instant,
+    counters: [Instant; 4],
     tex_filter: SamplerBehavior,
+    texture: Texture2d,
+
     proj_matrix: Matrix4<f32>,
     pub view_matrix: Matrix4<f32>,
     pub model_matrix: Matrix4<f32>,
@@ -121,13 +119,14 @@ impl GLRenderer<'_> {
             camera_zoom: 1.0,
             camera_pan: Vector2::from([0.0, 0.0]),
             gui: GUI::new(&display),
+            texture: Texture2d::empty(&display, XRES as u32, YRES as u32).expect("Can't create texture"),
             display,
             vert_buffer,
             ind_buffer,
             program,
             draw_params,
             frame_start: Instant::now(),
-            counter: Instant::now(),
+            counters: [Instant::now(); 4],
             tex_filter,
             proj_matrix,
             view_matrix: Matrix4::identity(),
@@ -137,10 +136,18 @@ impl GLRenderer<'_> {
 
     pub fn draw(&mut self, sim : &Simulation) {
         let dt = self.frame_start.elapsed().as_micros();
-        if dt != 0 && self.counter.elapsed().as_secs() >= 1{
+        if dt != 0 && self.counters[0].elapsed().as_secs() >= 1{
             let fps = 1000000f64 / dt as f64;
-            println!("{} - {}", fps, sim.get_part_count());
-            self.counter = Instant::now();
+            println!("{:.2} fps   {} parts", fps, sim.get_part_count());
+
+            println!(
+                " Timings:\n  Tex Gen: {}μs\n  Tex Write: {}μs\n  Frame Finish: {}μs",
+                (self.counters[1] - self.frame_start).as_micros(),
+                (self.counters[2] - self.counters[1]).as_micros(),
+                (self.counters[3] - self.counters[2]).as_micros(),
+            );
+
+            self.counters[0] = Instant::now();
         }
         self.frame_start = Instant::now();
 
@@ -159,6 +166,7 @@ impl GLRenderer<'_> {
             }
         }
 
+        self.counters[1] = Instant::now();
 
         let view_matrix =
             Matrix4::from_scale(self.camera_zoom) *
@@ -167,18 +175,23 @@ impl GLRenderer<'_> {
         self.view_matrix = view_matrix;
         let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
 
-        let tex : Texture2d = Texture2d::new(&self.display, tex_data).expect("Texture creation failed");
+        self.texture.write(Rect{width: XRES as u32, height: YRES as u32, bottom: 0, left: 0}, tex_data);
         let uniforms = uniform! {
-            tex: glium::uniforms::Sampler(&tex, self.tex_filter),
+            tex: glium::uniforms::Sampler(&self.texture, self.tex_filter),
             pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix)
         };
+
+        self.counters[2] = Instant::now();
 
         let mut frame = self.display.draw();
         frame.clear_color(0.0,0.0,0.0,0.0);
         frame.draw(&self.vert_buffer, &self.ind_buffer, &self.program, &uniforms, &self.draw_params).expect("Draw error");
+
         self.gui.draw_gui(&self.display, &mut frame);
 
         frame.finish().expect("Swap buffers error");
+
+        self.counters[3] = Instant::now();
     }
 }
 

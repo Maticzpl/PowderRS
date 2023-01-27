@@ -7,8 +7,6 @@ mod gl_renderer;
 mod gui;
 
 use std::collections::{HashMap};
-
-
 use cgmath::num_traits::pow;
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
@@ -16,9 +14,7 @@ use glium::glutin::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, Wi
 use glium::glutin::event::ElementState::Pressed;
 use glium::glutin::event::MouseScrollDelta::LineDelta;
 
-
 use crate::gl_renderer::GLRenderer;
-
 use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
 
 struct TickFnState {
@@ -26,10 +22,15 @@ struct TickFnState {
     pan_start_pos: Vector2<f32>,
     pan_original: Vector2<f32>,
     brush_size: i32,
+    paused: bool
 }
 
 fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
-    sim.step();
+    if !tick_state.paused || input.keys.get(&VirtualKeyCode::F).is_some() {
+        sim.step();
+    } else {
+        sim.update_p_map();
+    }
 
     // Correct mouse pos
     let mut mouse_pos = Vector4 {x: input.mouse_pos.x as f32, y: input.mouse_pos.y as f32, z: 0.0, w : 1.0};
@@ -42,7 +43,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         mouse_screen_pos;
 
 
-    if input.mouse_buttons.get(&MouseButton::Left).is_some_and(|b| *b) {
+    if input.mouse_buttons.get(&MouseButton::Left).is_some() {
         let size = tick_state.brush_size as usize;
         let hs = size as usize / 2usize;
         let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
@@ -53,7 +54,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
             sim.add_part(Particle { p_type: 2, x: (x - hs + i / size) as u32, y: (y - hs + i % size) as u32 });
         }
     }
-    if input.mouse_buttons.get(&MouseButton::Right).is_some_and(|b| *b) {
+    if input.mouse_buttons.get(&MouseButton::Right).is_some() {
         let size = tick_state.brush_size as usize;
         let hs = size as usize / 2usize;
         let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
@@ -68,8 +69,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         }
     }
 
-
-    if input.mouse_buttons.get(&MouseButton::Middle).is_some_and(|b| *b) {
+    if input.mouse_buttons.get(&MouseButton::Middle).is_some() {
         let (x, y) = (mouse_screen_pos.x as f32, mouse_screen_pos.y as f32);
         if !tick_state.pan_started {
             tick_state.pan_start_pos = Vector2 {x, y};
@@ -83,8 +83,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         tick_state.pan_started = false;
     }
 
-
-    if input.keys.get(&VirtualKeyCode::LControl).is_some_and(|b| *b)
+    if input.keys.get(&VirtualKeyCode::LControl).is_some()
         && input.scroll != 0.0 {
 
         let change = input.scroll / 10.0 * (ren.camera_zoom*2.0);
@@ -108,6 +107,12 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         input.scroll = 0.0;
     }
 
+
+    if input.keys.get(&VirtualKeyCode::Space).is_some()
+        && input.prev_keys.get(&VirtualKeyCode::Space).is_none() {
+        tick_state.paused = !tick_state.paused;
+    }
+
     ren.draw(&sim);
 }
 
@@ -120,9 +125,10 @@ fn main() {
     let mut input: InputData = InputData {
         mouse_buttons: HashMap::new(),
         keys: HashMap::new(),
+        prev_keys : HashMap::new(),
         mouse_pos: PhysicalPosition{ x:0.0, y:0.0 },
         scroll: 0.0,
-        win_size: PhysicalSize { width: WINW as u32, height: WINH as u32 }
+        win_size: PhysicalSize { width: WINW as u32, height: WINH as u32 },
     };
 
     for i in 0..100 {
@@ -145,6 +151,7 @@ fn main() {
         pan_start_pos: Vector2 {x: 0.0, y: 0.0},
         pan_original: Vector2::from([0.0, 0.0]),
         brush_size: 5,
+        paused: false
     };
 
     event_loop.run(move |event, _, flow| {
@@ -165,7 +172,7 @@ fn main() {
                         if state == Pressed {
                             input.mouse_buttons.insert(button, true);
                         } else {
-                            input.mouse_buttons.insert(button, false);
+                            input.mouse_buttons.remove(&button);
                         }
                     }
                     WindowEvent::MouseWheel {
@@ -197,7 +204,7 @@ fn main() {
                             if state == Pressed {
                                 input.keys.insert(key, true);
                             } else {
-                                input.keys.insert(key, false);
+                                input.keys.remove(&key);
                             }
                         }
                     },
@@ -212,6 +219,7 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 tick(&mut sim, &mut ren, &mut input, &mut tick_state);
+                input.prev_keys = input.keys.clone();
             },
             _ => {}
 
@@ -223,6 +231,7 @@ fn main() {
 pub struct InputData {
     pub mouse_buttons: HashMap<MouseButton, bool>,
     pub keys: HashMap<VirtualKeyCode, bool>,
+    pub prev_keys: HashMap<VirtualKeyCode, bool>,
     pub mouse_pos: PhysicalPosition<f64>,
     pub scroll: f32,
     pub win_size: PhysicalSize<u32>,
