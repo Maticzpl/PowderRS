@@ -1,16 +1,16 @@
 use crate::sim::{Particle, Simulation};
 
-pub mod NONE;
-pub use NONE::PT_NONE;
+pub mod none;
+pub use none::PT_NONE;
 
-pub mod BRCK;
-pub use BRCK::PT_BRCK;
+pub mod brck;
+pub use brck::PT_BRCK;
 
-pub mod DUST;
-pub use DUST::PT_DUST;
+pub mod dust;
+pub use dust::PT_DUST;
 
-pub mod WATR;
-pub use WATR::PT_WATR;
+pub mod watr;
+pub use watr::PT_WATR;
 
 pub const PT_TYPES : [PartType; 4] = [
     PT_NONE,

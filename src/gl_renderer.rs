@@ -16,12 +16,13 @@ use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
 use std::time::Instant;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
+use glium::texture::{MipmapsOption, UncompressedFloatFormat};
 use crate::gui::GUI;
 
 #[derive(Copy, Clone)]
 pub struct Vert {
-    pos: [f32; 2],
-    tex_coords: [f32; 2],
+    pub pos: [f32; 2],
+    pub tex_coords: [f32; 2],
 }
 
 implement_vertex!(Vert, pos, tex_coords);
@@ -35,10 +36,14 @@ pub struct GLRenderer<'a> {
     ind_buffer: IndexBuffer<u32>,
     program: Program,
     draw_params: DrawParameters<'a>,
-    frame_start: Instant,
-    counters: [Instant; 4],
     tex_filter: SamplerBehavior,
     texture: Texture2d,
+
+    frame_start: Instant,
+    timers: [Instant; 4],
+    perf_sum: [u128; 3],
+    fps_sum: f64,
+    samples: u32,
 
     proj_matrix: Matrix4<f32>,
     pub view_matrix: Matrix4<f32>,
@@ -55,11 +60,14 @@ impl GLRenderer<'_> {
             .with_inner_size(glutin::dpi::LogicalSize::new(win_size.0, win_size.1))
             .with_title("PowderRS")
             .with_resizable(true);
-        let cb = glutin::ContextBuilder::new().with_vsync(false);
+            //.with_transparent(true);
+        let cb = glutin::ContextBuilder::new()
+            .with_vsync(false);
 
         let display = Display::new(wb, cb, &event_loop).unwrap();
 
-        let (w,h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
+        let (w, h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
+
         let square : [Vert; 4] = [
             Vert{
                 pos: [-w as f32, h as f32],
@@ -89,8 +97,8 @@ impl GLRenderer<'_> {
         let vert_buffer = VertexBuffer::new(&display, &square).expect("Can't create vert buffer");
 
         let shaders : ProgramCreationInput = ProgramCreationInput::SourceCode {
-            vertex_shader: VERT_SHADER,
-            fragment_shader: FRAG_SHADER,
+            vertex_shader: include_str!("./shaders/main.vert"),
+            fragment_shader: include_str!("./shaders/main.frag"),
 
             tessellation_control_shader: None,
             tessellation_evaluation_shader: None,
@@ -100,17 +108,19 @@ impl GLRenderer<'_> {
             uses_point_size: false,
         };
 
-        let program = Program::new(&display, shaders).expect("Shader stuff failed");
+        let program = match Program::new(&display, shaders) {
+            Ok(res) => { res },
+            Err(e) => { panic!("{}", e.to_string().replace("\\n","\n")); }
+        };
 
         let draw_params : DrawParameters = DrawParameters::default();
 
-        let (w,h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
         let proj_matrix : Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
         let model_matrix : Matrix4<f32> = Matrix4::from_translation(Vector3{ x: -((UI_MARGIN / 2) as f32), y: -((UI_MARGIN / 2) as f32), z:0.0 }) *
             Matrix4::from_nonuniform_scale(XRES as f32/WINW as f32, YRES as f32/WINH as f32, 1.0);
 
         let tex_filter = SamplerBehavior {
-            minify_filter: MinifySamplerFilter::Nearest,
+            minify_filter: MinifySamplerFilter::Linear,
             magnify_filter: MagnifySamplerFilter::Nearest,
             ..Default::default()
         };
@@ -119,54 +129,68 @@ impl GLRenderer<'_> {
             camera_zoom: 1.0,
             camera_pan: Vector2::from([0.0, 0.0]),
             gui: GUI::new(&display),
-            texture: Texture2d::empty(&display, XRES as u32, YRES as u32).expect("Can't create texture"),
+            texture: Texture2d::empty_with_format(&display, UncompressedFloatFormat::U8U8U8U8, MipmapsOption::NoMipmap, XRES as u32, YRES as u32).expect("Can't create texture"),
             display,
             vert_buffer,
             ind_buffer,
             program,
             draw_params,
             frame_start: Instant::now(),
-            counters: [Instant::now(); 4],
+            timers: [Instant::now(); 4],
             tex_filter,
             proj_matrix,
             view_matrix: Matrix4::identity(),
-            model_matrix
+            model_matrix,
+            fps_sum: 0.0,
+            samples: 0,
+            perf_sum: [0; 3],
         }, event_loop)
     }
 
     pub fn draw(&mut self, sim : &Simulation) {
         let dt = self.frame_start.elapsed().as_micros();
-        if dt != 0 && self.counters[0].elapsed().as_secs() >= 1{
-            let fps = 1000000f64 / dt as f64;
-            println!("{:.2} fps   {} parts", fps, sim.get_part_count());
+
+        self.fps_sum += 1000000f64 / dt as f64;
+        self.perf_sum[0] += (self.timers[1] - self.frame_start).as_micros();
+        self.perf_sum[1] += (self.timers[2] - self.timers[1]).as_micros();
+        self.perf_sum[2] += (self.timers[3] - self.timers[2]).as_micros();
+        self.samples += 1;
+
+        if self.timers[0].elapsed().as_secs() >= 2{
+            let fps = (self.samples as f64 * 1000f64) / self.timers[0].elapsed().as_millis() as f64;
+            //self.fps_sum / self.samples as f64;
+            println!("From {} samples: {:.2} fps ({:.2}ms) {} parts", self.samples, fps, 1000f64 / fps, sim.get_part_count());
 
             println!(
                 " Timings:\n  Tex Gen: {}μs\n  Tex Write: {}μs\n  Frame Finish: {}μs",
-                (self.counters[1] - self.frame_start).as_micros(),
-                (self.counters[2] - self.counters[1]).as_micros(),
-                (self.counters[3] - self.counters[2]).as_micros(),
+                self.perf_sum[0] / self.samples as u128,
+                self.perf_sum[1] / self.samples as u128,
+                self.perf_sum[2] / self.samples as u128,
             );
 
-            self.counters[0] = Instant::now();
+            self.perf_sum = [0; 3];
+            self.fps_sum = 0.0;
+            self.samples = 0;
+            self.timers[0] = Instant::now();
         }
         self.frame_start = Instant::now();
 
 
-        let mut tex_data = vec![vec![(1u8, 0u8, 0u8); XRES]; YRES];
+        let mut tex_data = vec![vec![(1u8, 0u8, 0u8, 0u8); XRES]; YRES];
         let mut counter = 0;
         for i in 0..sim.parts.len() {
             if counter >= sim.get_part_count() {
                 break;
             }
-            let pt = sim.get_part(i).unwrap();
+            let pt = sim.get_part(i);
             if pt.p_type != 0 {
                 let col = pt.get_type().col;
-                tex_data[pt.y as usize][pt.x as usize] = (col[0],col[1],col[2]);
+                tex_data[pt.y as usize][pt.x as usize] = (col[0],col[1],col[2],pt.p_type as u8);
                 counter += 1;
             }
         }
 
-        self.counters[1] = Instant::now();
+        self.timers[1] = Instant::now();
 
         let view_matrix =
             Matrix4::from_scale(self.camera_zoom) *
@@ -181,44 +205,16 @@ impl GLRenderer<'_> {
             pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix)
         };
 
-        self.counters[2] = Instant::now();
+        self.timers[2] = Instant::now();
 
         let mut frame = self.display.draw();
-        frame.clear_color(0.0,0.0,0.0,0.0);
+        frame.clear_color(1.0/255.0,0.0,0.0,0.0);
         frame.draw(&self.vert_buffer, &self.ind_buffer, &self.program, &uniforms, &self.draw_params).expect("Draw error");
 
         self.gui.draw_gui(&self.display, &mut frame);
 
         frame.finish().expect("Swap buffers error");
 
-        self.counters[3] = Instant::now();
+        self.timers[3] = Instant::now();
     }
 }
-
-const VERT_SHADER : &str = r#"
-#version 330 core
-layout (location = 0) in vec2 pos;
-layout (location = 1) in vec2 tex_coords;
-out vec2 v_tex_coords;
-
-uniform mat4 pvm;
-
-void main()
-{
-    gl_Position = pvm * vec4(pos, 0.0, 1.0);
-    v_tex_coords = tex_coords;
-}
-"#;
-
-const FRAG_SHADER : &str = r#"
-#version 330 core
-out vec4 FragColor;
-
-in vec2 v_tex_coords;
-uniform sampler2D tex;
-
-void main()
-{
-    FragColor = texture(tex, v_tex_coords);
-}
-"#;

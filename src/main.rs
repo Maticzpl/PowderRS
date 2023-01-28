@@ -5,31 +5,36 @@ mod sim;
 mod types;
 mod gl_renderer;
 mod gui;
+mod event_handling;
 
 use std::collections::{HashMap};
 use cgmath::num_traits::pow;
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glium::glutin::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
-use glium::glutin::event::ElementState::Pressed;
-use glium::glutin::event::MouseScrollDelta::LineDelta;
+use glium::glutin::event::{MouseButton, VirtualKeyCode};
+use crate::event_handling::{handle_events, InputData};
 
 use crate::gl_renderer::GLRenderer;
 use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
 
-struct TickFnState {
-    pan_started: bool,
-    pan_start_pos: Vector2<f32>,
-    pan_original: Vector2<f32>,
-    brush_size: i32,
-    paused: bool
+
+pub struct TickFnState {
+    pub pan_started: bool,
+    pub pan_start_pos: Vector2<f32>,
+    pub pan_original: Vector2<f32>,
+    pub brush_size: i32,
+    pub paused: bool
 }
 
 fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
-    if !tick_state.paused || input.keys.get(&VirtualKeyCode::F).is_some() {
+    ren.draw(&sim);
+
+    if !tick_state.paused ||
+        input.key_just_pressed(&VirtualKeyCode::F) ||
+        input.key_just_pressed(&VirtualKeyCode::V) ||
+        input.key_just_pressed(&VirtualKeyCode::J) ||
+        input.key_just_pressed(&VirtualKeyCode::N) {
         sim.step();
-    } else {
-        sim.update_p_map();
     }
 
     // Correct mouse pos
@@ -42,8 +47,14 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         Matrix4::from_translation(Vector3 {x: -(WINW as f32/2.0), y: -(WINH as f32/2.0), z: 0.0}) *
         mouse_screen_pos;
 
+    // Toggle Pause
+    if input.keys.get(&VirtualKeyCode::Space).is_some()
+        && input.prev_keys.get(&VirtualKeyCode::Space).is_none() {
+        tick_state.paused = !tick_state.paused;
+    }
 
-    if input.mouse_buttons.get(&MouseButton::Left).is_some() {
+    // Brush stuff
+    if input.mouse_pressed(&MouseButton::Left) {
         let size = tick_state.brush_size as usize;
         let hs = size as usize / 2usize;
         let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
@@ -54,22 +65,23 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
             sim.add_part(Particle { p_type: 2, x: (x - hs + i / size) as u32, y: (y - hs + i % size) as u32 });
         }
     }
-    if input.mouse_buttons.get(&MouseButton::Right).is_some() {
+    if input.mouse_pressed(&MouseButton::Right) {
         let size = tick_state.brush_size as usize;
         let hs = size as usize / 2usize;
         let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
-        x = x.min((XRES - size) as usize);
-        y = y.min((YRES - size) as usize);
+        x = x.clamp(hs, (XRES - hs - 1) as usize);
+        y = y.clamp(hs, (YRES - hs) as usize);
 
         for i in 0..pow(size, 2) {
             let val = sim.get_pmap_val((x - hs + i % size) as usize, (y - hs + i / size) as usize);
-            if val != 0 {
-                sim.kill_part(val - 1).expect("Tried to kill invalid part");
+            if val.is_some() {
+                sim.kill_part(val.unwrap()).expect("Tried to kill invalid part");
             }
         }
     }
 
-    if input.mouse_buttons.get(&MouseButton::Middle).is_some() {
+    // Panning
+    if input.mouse_pressed(&MouseButton::Middle) {
         let (x, y) = (mouse_screen_pos.x as f32, mouse_screen_pos.y as f32);
         if !tick_state.pan_started {
             tick_state.pan_start_pos = Vector2 {x, y};
@@ -83,7 +95,8 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         tick_state.pan_started = false;
     }
 
-    if input.keys.get(&VirtualKeyCode::LControl).is_some()
+    // Zooming
+    if input.key_pressed(&VirtualKeyCode::LControl)
         && input.scroll != 0.0 {
 
         let change = input.scroll / 10.0 * (ren.camera_zoom*2.0);
@@ -106,29 +119,30 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
         tick_state.brush_size = tick_state.brush_size.clamp(1 ,20);
         input.scroll = 0.0;
     }
-
-
-    if input.keys.get(&VirtualKeyCode::Space).is_some()
-        && input.prev_keys.get(&VirtualKeyCode::Space).is_none() {
-        tick_state.paused = !tick_state.paused;
-    }
-
-    ren.draw(&sim);
 }
 
 fn main() {
     let mut sim = Simulation::new();
     let ren = GLRenderer::new(&sim);
     let event_loop = ren.1;
-    let mut ren = ren.0;
+    let ren = ren.0;
 
-    let mut input: InputData = InputData {
+    let input: InputData = InputData {
         mouse_buttons: HashMap::new(),
+        prev_mouse_buttons: HashMap::new(),
         keys: HashMap::new(),
         prev_keys : HashMap::new(),
         mouse_pos: PhysicalPosition{ x:0.0, y:0.0 },
         scroll: 0.0,
         win_size: PhysicalSize { width: WINW as u32, height: WINH as u32 },
+    };
+
+    let tick_state = TickFnState {
+        pan_started: false,
+        pan_start_pos: Vector2 {x: 0.0, y: 0.0},
+        pan_original: Vector2::from([0.0, 0.0]),
+        brush_size: 5,
+        paused: false
     };
 
     for i in 0..100 {
@@ -146,94 +160,5 @@ fn main() {
     }
     sim.add_part(Particle{p_type:1, x: (WINW / 2) as u32, y: (WINH / 2) as u32 });
 
-    let mut tick_state = TickFnState {
-        pan_started: false,
-        pan_start_pos: Vector2 {x: 0.0, y: 0.0},
-        pan_original: Vector2::from([0.0, 0.0]),
-        brush_size: 5,
-        paused: false
-    };
-
-    event_loop.run(move |event, _, flow| {
-        match event {
-            Event::WindowEvent {
-                event: ev,
-                ..
-            } => {
-                match ev {
-                    WindowEvent::CloseRequested => {
-                        flow.set_exit();
-                    }
-                    WindowEvent::MouseInput {
-                        button,
-                        state,
-                        ..
-                    } => {
-                        if state == Pressed {
-                            input.mouse_buttons.insert(button, true);
-                        } else {
-                            input.mouse_buttons.remove(&button);
-                        }
-                    }
-                    WindowEvent::MouseWheel {
-                        delta: LineDelta(_x, y),
-                        ..
-                    } => {
-                        input.scroll = y;
-                    }
-                    WindowEvent::CursorMoved {
-                        position: pos,
-                        ..
-                    } => {
-                        input.mouse_pos.x = pos.x as f64;
-                        input.mouse_pos.y = pos.y as f64;
-                    }
-                    WindowEvent::KeyboardInput {
-                        input: KeyboardInput {
-                            virtual_keycode: key,
-                            state,
-                            scancode: _scan,
-                            ..
-                        },
-                        ..
-                    } => {
-                        //println!("{:?} k-s {}",key,_scan);
-
-                        if key.is_some() {
-                            let key = key.unwrap();
-                            if state == Pressed {
-                                input.keys.insert(key, true);
-                            } else {
-                                input.keys.remove(&key);
-                            }
-                        }
-                    },
-                    WindowEvent::Resized {
-                        0: size
-                    } => {
-                        input.win_size = size;
-                    }
-
-                    _ => {}
-                }
-            }
-            Event::MainEventsCleared => {
-                tick(&mut sim, &mut ren, &mut input, &mut tick_state);
-                input.prev_keys = input.keys.clone();
-            },
-            _ => {}
-
-        }
-    });
-
+    handle_events(event_loop, input, sim, ren, tick_state);
 }
-
-pub struct InputData {
-    pub mouse_buttons: HashMap<MouseButton, bool>,
-    pub keys: HashMap<VirtualKeyCode, bool>,
-    pub prev_keys: HashMap<VirtualKeyCode, bool>,
-    pub mouse_pos: PhysicalPosition<f64>,
-    pub scroll: f32,
-    pub win_size: PhysicalSize<u32>,
-}
-
