@@ -1,6 +1,4 @@
-
-
-
+use std::thread;
 use glium::*;
 
 use glium::glutin::event_loop::EventLoop;
@@ -12,11 +10,12 @@ use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior
 
 
 
-use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
+use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, XYRES, YRES};
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use glium::texture::{MipmapsOption, UncompressedFloatFormat};
+use glium_glyph::glyph_brush::{HorizontalAlign, VerticalAlign};
 use crate::gui::GUI;
 
 #[derive(Copy, Clone)]
@@ -51,7 +50,7 @@ pub struct GLRenderer<'a> {
 }
 
 impl GLRenderer<'_> {
-    pub fn new(_sim : &Simulation) -> (Self, EventLoop<()>) {
+    pub fn new() -> (Self, EventLoop<()>) {
         let win_size = (WINW as u32, WINH as u32);
 
         let event_loop = glutin::event_loop::EventLoop::new();
@@ -147,26 +146,30 @@ impl GLRenderer<'_> {
         }, event_loop)
     }
 
-    pub fn draw(&mut self, sim : &Simulation) {
+    pub fn draw(&mut self, sim: &mut Simulation) {
         let dt = self.frame_start.elapsed().as_micros();
 
         self.fps_sum += 1000000f64 / dt as f64;
-        self.perf_sum[0] += (self.timers[1] - self.frame_start).as_micros();
-        self.perf_sum[1] += (self.timers[2] - self.timers[1]).as_micros();
-        self.perf_sum[2] += (self.timers[3] - self.timers[2]).as_micros();
+        // self.perf_sum[0] += (self.timers[1] - self.frame_start).as_micros();
+        // self.perf_sum[1] += (self.timers[2] - self.timers[1]).as_micros();
+        // self.perf_sum[2] += (self.timers[3] - self.timers[2]).as_micros();
         self.samples += 1;
 
-        if self.timers[0].elapsed().as_secs() >= 2{
-            let fps = (self.samples as f64 * 1000f64) / self.timers[0].elapsed().as_millis() as f64;
-            //self.fps_sum / self.samples as f64;
-            println!("From {} samples: {:.2} fps ({:.2}ms) {} parts", self.samples, fps, 1000f64 / fps, sim.get_part_count());
+        self.gui.add_text(format!("{:.2}", self.fps_sum/self.samples as f64).as_str(),
+                          Vector2::new(0.0,0.0), Vector2::new(150.0, 50.0), 50.0,
+                          None, None, Some(HorizontalAlign::Left), Some(VerticalAlign::Top));
 
-            println!(
-                " Timings:\n  Tex Gen: {}μs\n  Tex Write: {}μs\n  Frame Finish: {}μs",
-                self.perf_sum[0] / self.samples as u128,
-                self.perf_sum[1] / self.samples as u128,
-                self.perf_sum[2] / self.samples as u128,
-            );
+        if self.timers[0].elapsed().as_millis() >= 1000{
+            //let fps = (self.samples as f64 * 1000f64) / self.timers[0].elapsed().as_millis() as f64;
+            //self.fps_sum / self.samples as f64;
+            // println!("From {} samples: {:.2} fps ({:.2}ms) {} parts", self.samples, fps, 1000f64 / fps, sim.get_part_count());
+            //
+            // println!(
+            //     " Timings:\n  Tex Gen: {}μs\n  Tex Write: {}μs\n  Frame Finish: {}μs",
+            //     self.perf_sum[0] / self.samples as u128,
+            //     self.perf_sum[1] / self.samples as u128,
+            //     self.perf_sum[2] / self.samples as u128,
+            // );
 
             self.perf_sum = [0; 3];
             self.fps_sum = 0.0;
@@ -174,7 +177,6 @@ impl GLRenderer<'_> {
             self.timers[0] = Instant::now();
         }
         self.frame_start = Instant::now();
-
 
         let mut tex_data = vec![vec![(1u8, 0u8, 0u8, 0u8); XRES]; YRES];
         let mut counter = 0;
@@ -190,22 +192,19 @@ impl GLRenderer<'_> {
             }
         }
 
-        self.timers[1] = Instant::now();
+        self.texture.write(Rect{width: XRES as u32, height: YRES as u32, bottom: 0, left: 0}, tex_data);
 
         let view_matrix =
             Matrix4::from_scale(self.camera_zoom) *
-            Matrix4::from_translation(Vector3{x:self.camera_pan.x, y:self.camera_pan.y, z:0.0});
+                Matrix4::from_translation(Vector3{x:self.camera_pan.x, y:self.camera_pan.y, z:0.0});
 
         self.view_matrix = view_matrix;
         let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
 
-        self.texture.write(Rect{width: XRES as u32, height: YRES as u32, bottom: 0, left: 0}, tex_data);
         let uniforms = uniform! {
             tex: glium::uniforms::Sampler(&self.texture, self.tex_filter),
             pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix)
         };
-
-        self.timers[2] = Instant::now();
 
         let mut frame = self.display.draw();
         frame.clear_color(1.0/255.0,0.0,0.0,0.0);
@@ -215,6 +214,5 @@ impl GLRenderer<'_> {
 
         frame.finish().expect("Swap buffers error");
 
-        self.timers[3] = Instant::now();
     }
 }

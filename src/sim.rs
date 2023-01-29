@@ -2,11 +2,11 @@ use crate::types::*;
 use rand::prelude::*;
 
 pub const SCALE : usize = 1;
-pub const WINW: usize = 1024;
-pub const WINH: usize = 576;
-pub const UI_MARGIN: usize = 30;
-pub const XRES : usize = (WINW - UI_MARGIN) / SCALE;
-pub const YRES : usize = (WINH - UI_MARGIN) / SCALE;
+pub const WINW: usize = 1024 / SCALE;
+pub const WINH: usize = 576 / SCALE;
+pub const UI_MARGIN: usize = 30 / SCALE;
+pub const XRES : usize = (WINW - UI_MARGIN);
+pub const YRES : usize = (WINH - UI_MARGIN);
 pub const XYRES : usize = XRES * YRES;
 pub const PT_EMPTY : Particle = Particle{p_type: PT_NONE.id, x: 0, y: 0};
 

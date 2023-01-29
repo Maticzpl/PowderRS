@@ -38,6 +38,7 @@ void main()
     float rng = rand(vec2(floor(v_tex_coords/pixel_size)*pixel_size));
     float dustMin = 0.85;
 
+    // i really dont think this is how i will do this
     FragColor = lerp(col * 0.1, col, sameNeigh / neighTotal) * int(type == 3) + //WATR
                 col * ((dustMin - 1) * rng + 1) * int(type == 2) + //DUST
                 col * int(type != 3 && type != 2); // other

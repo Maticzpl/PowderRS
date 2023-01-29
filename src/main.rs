@@ -27,7 +27,7 @@ pub struct TickFnState {
 }
 
 fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
-    ren.draw(&sim);
+    ren.draw(sim);
 
     if !tick_state.paused ||
         input.key_just_pressed(&VirtualKeyCode::F) ||
@@ -123,7 +123,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
 
 fn main() {
     let mut sim = Simulation::new();
-    let ren = GLRenderer::new(&sim);
+    let ren = GLRenderer::new();
     let event_loop = ren.1;
     let ren = ren.0;
 
