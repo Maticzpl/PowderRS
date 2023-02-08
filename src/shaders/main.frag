@@ -23,7 +23,7 @@ void main()
     vec2 pixel_size = 1.0 / vec2(textureSize(tex, 0));
 
     float sameNeigh = 0;
-    int r = 6;
+    int r = 1;
     for(int y = -r; y <= r; y++)
     {
         for (int x = -r; x <= r; x++)
@@ -35,11 +35,17 @@ void main()
     }
     float neighTotal = float(4*r*r);
 
+    vec2 pos = floor(v_tex_coords/pixel_size);
+
     float rng = rand(vec2(floor(v_tex_coords/pixel_size)*pixel_size));
     float dustMin = 0.85;
+
+    float gridBright = (1.0 / 255.0) * int(int(pos.x + pos.y) % 2 == 0);
+    vec4 gridCol = vec4(gridBright, gridBright, gridBright, 0);
 
     // i really dont think this is how i will do this
     FragColor = lerp(col * 0.1, col, sameNeigh / neighTotal) * int(type == 3) + //WATR
                 col * ((dustMin - 1) * rng + 1) * int(type == 2) + //DUST
+                (col + gridCol) * int(type == 0) +
                 col * int(type != 3 && type != 2); // other
 }
