@@ -1,8 +1,7 @@
 use cgmath::Vector2;
-use glium::glutin::event::VirtualKeyCode::N;
-use glium_glyph::glyph_brush::{Color, FontId, HorizontalAlign, VerticalAlign};
+use glium_glyph::glyph_brush::{Color, FontId};
 use crate::gui::GUI;
-use crate::sim::{UI_MARGIN, WINW, XRES, YRES};
+use crate::sim::{UI_MARGIN, XRES, YRES};
 use crate::types::PT_TYPES;
 
 pub fn draw_element_bar(gui: &mut GUI) {

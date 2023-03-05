@@ -2,6 +2,8 @@
 out vec4 FragColor;
 
 in vec2 v_tex_coords;
+
+uniform int grid;
 uniform sampler2D tex;
 
 vec4 lerp(vec4 a, vec4 b, float t)
@@ -18,7 +20,7 @@ void main()
     // i doubt i will do particle shaders this way but idk
     vec4 col = texture(tex, v_tex_coords);
     int type = int(col.a * 255);
-    col.a = 1 * int(type != 0);
+    col.a = int(type != 0);
 
     vec2 pixel_size = 1.0 / vec2(textureSize(tex, 0));
 
@@ -41,6 +43,9 @@ void main()
     float dustMin = 0.85;
 
     float gridBright = (1.0 / 255.0) * int(int(pos.x + pos.y) % 2 == 0);
+    if(grid != 0)
+        gridBright += (2.0 / 255.0) * int(int(pos.x) % (grid - 1) == 0 || int(pos.y) % (grid - 1) == 0);
+
     vec4 gridCol = vec4(gridBright, gridBright, gridBright, 0);
 
     // i really dont think this is how i will do this

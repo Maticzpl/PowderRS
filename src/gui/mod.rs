@@ -1,17 +1,15 @@
 mod element_bar;
 
-use std::collections::HashMap;
-use std::hash::Hash;
-use cgmath::{Matrix4, Vector2, Vector3, SquareMatrix};
+use cgmath::{Matrix4, Vector2, Vector3};
 use glium::{Display, DrawParameters, implement_vertex, IndexBuffer, Program, Surface, uniform, VertexBuffer};
 use glium::index::PrimitiveType;
 use glium::program::ProgramCreationInput;
-use glium_glyph::glyph_brush::ab_glyph::{Font, FontRef};
+use glium_glyph::glyph_brush::ab_glyph::{FontRef};
 use glium_glyph::{GlyphBrush, GlyphBrushBuilder};
-use glium_glyph::glyph_brush::{Color, Extra, HorizontalAlign, Section, Text, Layout, VerticalAlign, FontId};
+use glium_glyph::glyph_brush::{Color, HorizontalAlign, Section, Text, Layout, VerticalAlign, FontId};
 use crate::gui::element_bar::draw_element_bar;
 
-use crate::sim::{WINH, WINW, XRES, YRES};
+use crate::sim::{WINH, WINW};
 
 #[derive(Copy, Clone)]
 pub struct GUIVert {
