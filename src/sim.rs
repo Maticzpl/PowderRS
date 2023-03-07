@@ -1,10 +1,9 @@
 use crate::types::*;
 use rand::prelude::*;
 
-pub const SCALE : usize = 1;
-pub const WINW: usize = (1.0 * 1024.0) as usize / SCALE;
-pub const WINH: usize = (1.0 * 576.0) as usize / SCALE;
-pub const UI_MARGIN: usize = 30 / SCALE;
+pub const WINW: usize = (1.3 * 1024.0) as usize;
+pub const WINH: usize = (1.3 * 576.0) as usize;
+pub const UI_MARGIN: usize = 30;
 pub const XRES : usize = WINW - UI_MARGIN;
 pub const YRES : usize = WINH - UI_MARGIN;
 pub const XYRES : usize = XRES * YRES;
@@ -27,7 +26,6 @@ pub struct Simulation {
     pub parts : Box<[Particle; XYRES]>,
     pub pmap : Box<[Option<usize>; XYRES]>,
     part_count: usize,
-    can_step: bool,
 }
 impl Simulation {
     pub fn new() -> Self {
@@ -38,7 +36,6 @@ impl Simulation {
             parts: p,
             pmap: pm,
             part_count: 0,
-            can_step: false,
         }
     }
 
@@ -114,10 +111,6 @@ impl Simulation {
                 counter += 1;
             }
         }
-    }
-
-    pub fn allow_step(&mut self) {
-        self.can_step = true;
     }
 
     pub fn step(&mut self) {

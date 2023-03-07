@@ -1,10 +1,14 @@
+mod event_handling;
+
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use cgmath::num_traits::pow;
 use glium::glutin::event::{MouseButton, VirtualKeyCode};
-use crate::event_handling::InputData;
 use crate::gl_renderer::GLRenderer;
 use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
-use crate::TickFnState;
+pub use crate::TickFnState;
+pub use crate::input::event_handling::InputData;
+pub use crate::input::event_handling::handle_events;
+
 
 pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
     if !tick_state.paused ||
@@ -16,6 +20,11 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
         sim.step();
     }
 
+    // Toggle Pause
+    if input.key_just_pressed(&VirtualKeyCode::Space) {
+        tick_state.paused = !tick_state.paused;
+    }
+    
     // Correct mouse pos
     let mut mouse_pos = Vector4 {x: input.mouse_pos.x as f32, y: input.mouse_pos.y as f32, z: 0.0, w : 1.0};
     let (sx, sy) = (input.win_size.width as f32 / WINW as f32, input.win_size.height as f32 / WINH as f32);
@@ -25,11 +34,6 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
             ren.view_matrix.inverse_transform().expect("") *
             Matrix4::from_translation(Vector3 {x: -(WINW as f32/2.0), y: -(WINH as f32/2.0), z: 0.0}) *
             mouse_screen_pos;
-
-    // Toggle Pause
-    if input.key_just_pressed(&VirtualKeyCode::Space) {
-        tick_state.paused = !tick_state.paused;
-    }
 
     // Brush stuff
     if input.mouse_pressed(&MouseButton::Left) {
@@ -108,10 +112,10 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
 
         ren.camera_pan += (res - mouse_pos).truncate().truncate();
 
-        input.scroll = 0.0;
     } else if input.scroll != 0.0 {
         tick_state.brush_size += input.scroll.signum() as i32;
         tick_state.brush_size = tick_state.brush_size.clamp(1 ,20);
-        input.scroll = 0.0;
     }
+
+    input.scroll = 0.0;
 }

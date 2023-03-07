@@ -1,11 +1,11 @@
 #![feature(box_syntax)]
 #![feature(is_some_and)]
+#![feature(macro_metavar_expr)]
 
 mod sim;
 mod types;
 mod gl_renderer;
 mod gui;
-mod event_handling;
 mod input;
 
 use std::collections::{HashMap};
@@ -13,10 +13,9 @@ use std::time::Instant;
 use cgmath::{Vector2};
 use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glium_glyph::glyph_brush::{HorizontalAlign, VerticalAlign};
-use crate::event_handling::{handle_events, InputData};
 
 use crate::gl_renderer::GLRenderer;
-use crate::input::handle_input;
+use crate::input::{handle_events, handle_input, InputData};
 use crate::sim::{Particle, Simulation, WINH, WINW};
 
 fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_state : &mut TickFnState) {
@@ -26,7 +25,7 @@ fn tick(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut InputData, tick_
     tick_state.time_since_tick = Instant::now();
 
     //draw cap
-    if tick_state.time_since_render.elapsed().as_micros() > (1000000/100) - dt {
+    if tick_state.time_since_render.elapsed().as_micros() > (1000000/80){
         ren.gui.add_text(format!("{:.2}", fps).as_str(),
              Vector2::new(0.0,50.0), Vector2::new(200.0, 50.0), 50.0,
              None, None, Some(HorizontalAlign::Left), Some(VerticalAlign::Top));

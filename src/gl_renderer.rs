@@ -181,7 +181,15 @@ impl GLRenderer<'_> {
         }
         self.frame_start = Instant::now();
 
+        let view_matrix =
+            Matrix4::from_scale(self.camera_zoom) *
+                Matrix4::from_translation(Vector3{x:self.camera_pan.x, y:self.camera_pan.y, z:0.0});
+
+        self.view_matrix = view_matrix;
+        let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
+
         // Generate texture
+        //self.texture = Texture2d::empty_with_format(&self.display, UncompressedFloatFormat::U8U8U8U8, MipmapsOption::NoMipmap, XRES as u32, YRES as u32).expect("Can't create texture");
         let mut tex_data = vec![vec![(0u8, 0u8, 0u8, 0u8); XRES]; YRES];
         let mut counter = 0;
         for i in 0..sim.parts.len() {
@@ -195,15 +203,8 @@ impl GLRenderer<'_> {
                 counter += 1;
             }
         }
-
         self.texture.write(Rect{width: XRES as u32, height: YRES as u32, bottom: 0, left: 0}, tex_data);
 
-        let view_matrix =
-            Matrix4::from_scale(self.camera_zoom) *
-                Matrix4::from_translation(Vector3{x:self.camera_pan.x, y:self.camera_pan.y, z:0.0});
-
-        self.view_matrix = view_matrix;
-        let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
 
         let uniforms = uniform! {
             tex: glium::uniforms::Sampler(&self.texture, self.tex_filter),
