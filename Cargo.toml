@@ -13,6 +13,7 @@ glium = "0.32.1"
 glium-glyph = "0.14.0"
 cgmath = "0.18.0"
 rand = "0.8.5"
+regex = "1.7.1"
 
 [profile.dev]
 opt-level = 1
