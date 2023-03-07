@@ -30,3 +30,12 @@ jobs:
       run: cargo build --verbose --release
     #- name: Run tests # currently there are no tests :P
     #  run: cargo test --verbose
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.2
+      if: matrix.os == ubuntu-latest
+      with:
+        path: target/release/powder_rs
+    - uses: actions/upload-artifact@v3.1.2
+      if: matrix.os == windows-latest
+      with:
+        path: target/release/powder_rs.exe
