@@ -28,10 +28,10 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - run: echo ::set-env name=RESULT::$(rustup toolchain list)
+    - run: echo "toolchains=$(rustup toolchain list)" >> $GITHUB_ENV
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1.0.6
-      if: ${{ !contains(env.RESULT, 'nightly') }}
+      if: ${{ !contains(env.toolchains, 'nightly') }}
       with:
           toolchain: nightly
           components: clippy
