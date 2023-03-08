@@ -41,7 +41,7 @@ jobs:
       run: cargo build --verbose --release
     #- name: Run tests # currently there are no tests :P
     #  run: cargo test --verbose    
-    - run: mv /target/release/powder_rs /target/release/powder_rs_${{matrix.os}}
+    - run: mv target/release/powder_rs target/release/powder_rs_${{matrix.os}}
       if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}    
     - name: Upload Build Artifact (Linux / MacOS)
       uses: actions/upload-artifact@v3.1.2
