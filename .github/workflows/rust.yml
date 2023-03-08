@@ -28,8 +28,10 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - run: echo ::set-env name=RESULT::$(rustup toolchain list)
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1.0.6
+      if: ${{ !contains(env.RESULT, 'nightly') }}
       with:
           toolchain: nightly
           components: clippy
@@ -38,12 +40,14 @@ jobs:
     - name: Build
       run: cargo build --verbose --release
     #- name: Run tests # currently there are no tests :P
-    #  run: cargo test --verbose
+    #  run: cargo test --verbose    
+    - run: mv /target/release/powder_rs /target/release/powder_rs_${{matrix.os}}
+      if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}    
     - name: Upload Build Artifact (Linux / MacOS)
       uses: actions/upload-artifact@v3.1.2
       if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
       with:
-        path: target/release/powder_rs
+        path: target/release/powder_rs_${{matrix.os}}
     - name: Upload Build Artifact (Windows)
       uses: actions/upload-artifact@v3.1.2
       if: ${{ matrix.os == 'windows-latest' }}
