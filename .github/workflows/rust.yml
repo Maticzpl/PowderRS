@@ -19,6 +19,13 @@ jobs:
 
     steps:    
     - uses: actions/checkout@v3
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+          toolchain: nightly
+          components: clippy
+          default: true
+          override: true
     - uses: actions/cache@v3
       with:
         path: |
@@ -28,20 +35,12 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - run: echo "toolchains=$(rustup toolchain list)" >> $GITHUB_ENV
-    - name: Install latest nightly
-      uses: actions-rs/toolchain@v1.0.6
-      if: ${{ !contains(env.toolchains, 'nightly') }}
-      with:
-          toolchain: nightly
-          components: clippy
-          default: true
-          override: true
     - name: Build
       run: cargo build --verbose --release
-    #- name: Run tests # currently there are no tests :P
-    #  run: cargo test --verbose    
-    - run: mv target/release/powder_rs target/release/powder_rs_${{matrix.os}}
+    - name: Run tests
+      run: cargo test --verbose    
+    - name: Rename executable (Linux / MacOS)
+      run: mv target/release/powder_rs target/release/powder_rs_${{matrix.os}}
       if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}    
     - name: Upload Build Artifact (Linux / MacOS)
       uses: actions/upload-artifact@v3.1.2
