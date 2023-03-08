@@ -31,6 +31,7 @@ pub struct GLRenderer<'a> {
     pub camera_pan: Vector2<f32>,
     pub gui : GUI<'a, 'a>,
     pub grid_size : u32,
+    pub cursor: Rect,
     display: Display,
     vert_buffer: VertexBuffer<Vert>,
     ind_buffer: IndexBuffer<u32>,
@@ -131,6 +132,7 @@ impl GLRenderer<'_> {
             camera_zoom: 1.0,
             camera_pan: Vector2::from([0.0, 0.0]),
             gui: GUI::new(&display),
+            cursor: Rect::default(),
             texture: Texture2d::empty_with_format(&display, UncompressedFloatFormat::U8U8U8U8, MipmapsOption::NoMipmap, XRES as u32, YRES as u32).expect("Can't create texture"),
             display,
             vert_buffer,
@@ -203,6 +205,7 @@ impl GLRenderer<'_> {
                 counter += 1;
             }
         }
+        self.draw_cursor(&mut tex_data);
         self.texture.write(Rect{width: XRES as u32, height: YRES as u32, bottom: 0, left: 0}, tex_data);
 
 
@@ -220,5 +223,33 @@ impl GLRenderer<'_> {
 
         frame.finish().expect("Swap buffers error");
 
+    }
+
+    fn blend_colors(col_a : (u8,u8,u8,u8), col_b : (u8,u8,u8,u8), t : f32) -> (u8,u8,u8,u8){
+        let mut col = col_a;
+        let rt = 1.0 - t;
+        col.0 = (col.0 as f32 * rt) as u8 + (col_b.0 as f32 * t) as u8;
+        col.1 = (col.1 as f32 * rt) as u8 + (col_b.1 as f32 * t) as u8;
+        col.2 = (col.2 as f32 * rt) as u8 + (col_b.2 as f32 * t) as u8;
+        col.3 = u8::saturating_add(col.3, col_b.3);
+
+        col
+    }
+
+    fn draw_cursor(&self, tex_data : &mut Vec<Vec<(u8,u8,u8,u8)>>) {
+        for i in 0..self.cursor.height {
+            let x = self.cursor.left as usize;
+            let rx = (self.cursor.left + self.cursor.width-1) as usize;
+            let y = (self.cursor.bottom + i) as usize;
+            tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255,255,255,128), 0.5);
+            tex_data[y][rx] = GLRenderer::blend_colors(tex_data[y][rx], (255,255,255,128), 0.5);
+        }
+        for i in 1..self.cursor.width-1 {
+            let x = (self.cursor.left + i) as usize;
+            let ry = (self.cursor.bottom + self.cursor.height-1) as usize;
+            let y = self.cursor.bottom as usize;
+            tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255,255,255,128), 0.5);
+            tex_data[ry][x] = GLRenderer::blend_colors(tex_data[ry][x], (255,255,255,128), 0.5);
+        }
     }
 }

@@ -35,13 +35,16 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
             Matrix4::from_translation(Vector3 {x: -(WINW as f32/2.0), y: -(WINH as f32/2.0), z: 0.0}) *
             mouse_screen_pos;
 
+    let (mut cursor_x, mut cursor_y) = (mouse_pos.x as usize, mouse_pos.y as usize);
+    let hs = tick_state.brush_size as usize / 2usize;
+    cursor_x = cursor_x.clamp(hs, (XRES - hs - 1) as usize);
+    cursor_y = cursor_y.clamp(hs, (YRES - hs - 1) as usize);
+
+
     // Brush stuff
     if input.mouse_pressed(&MouseButton::Left) {
         let size = tick_state.brush_size as usize;
-        let hs = size as usize / 2usize;
-        let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
-        x = x.clamp(hs, (XRES - hs - 1) as usize);
-        y = y.clamp(hs, (YRES - hs - 1) as usize);
+        let (x, y) = (cursor_x, cursor_y);
 
         for i in 0..pow(size, 2) {
             sim.add_part(Particle { p_type: 2, x: (x - hs + i / size) as u32, y: (y - hs + i % size) as u32 });
@@ -49,10 +52,7 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
     }
     if input.mouse_pressed(&MouseButton::Right) {
         let size = tick_state.brush_size as usize;
-        let hs = size as usize / 2usize;
-        let (mut x, mut y) = (mouse_pos.x as usize, mouse_pos.y as usize);
-        x = x.clamp(hs, (XRES - hs - 1) as usize);
-        y = y.clamp(hs, (YRES - hs) as usize);
+        let (x, y) = (cursor_x, cursor_y);
 
         for i in 0..pow(size, 2) {
             let val = sim.get_pmap_val((x - hs + i % size) as usize, (y - hs + i / size) as usize);
@@ -116,6 +116,13 @@ pub fn handle_input(sim: &mut Simulation, ren: &mut GLRenderer, input: &mut Inpu
         tick_state.brush_size += input.scroll.signum() as i32;
         tick_state.brush_size = tick_state.brush_size.clamp(1 ,20);
     }
+
+    ren.cursor = glium::Rect{
+        left: (cursor_x - hs) as u32,
+        bottom: (cursor_y - hs) as u32,
+        width: tick_state.brush_size as u32,
+        height: tick_state.brush_size as u32,
+    };
 
     input.scroll = 0.0;
 }
