@@ -1,6 +1,6 @@
 # PowderRS
-I'm doing tpt clones in every new lang I learn now :P
-
+I'm doing tpt clones in every new lang I learn now :P  
+If you want to play without having to compile it yourself, check the actions tab on github and download artifacts from latest successful build. 
 ## Compilation
 1. Install rust if you haven't already: https://rustup.rs/
 2. Clone the repo

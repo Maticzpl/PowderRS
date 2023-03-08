@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
   
     runs-on: ${{ matrix.os }}
 
@@ -39,12 +39,13 @@ jobs:
       run: cargo build --verbose --release
     #- name: Run tests # currently there are no tests :P
     #  run: cargo test --verbose
-    - name: Upload a Build Artifact
+    - name: Upload Build Artifact (Linux / MacOS)
       uses: actions/upload-artifact@v3.1.2
-      if: ${{ matrix.os == 'ubuntu-latest' }}
+      if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
       with:
         path: target/release/powder_rs
-    - uses: actions/upload-artifact@v3.1.2
+    - name: Upload Build Artifact (Windows)
+      uses: actions/upload-artifact@v3.1.2
       if: ${{ matrix.os == 'windows-latest' }}
       with:
         path: target/release/powder_rs.exe

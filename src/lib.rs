@@ -58,5 +58,3 @@ pub fn get_part_types_in_dir(stream: TokenStream) -> TokenStream {
 
     return format!("{}\n{}", imports, strc).parse().unwrap();
 }
-
-//  (const\s*PT_.*(\n.*)*id\s*:\s*)(\d+)(\,)
