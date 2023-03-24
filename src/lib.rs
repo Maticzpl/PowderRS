@@ -2,7 +2,6 @@ extern crate proc_macro;
 
 use proc_macro::{TokenStream, TokenTree};
 use std::string::{String};
-use std::any::{Any, TypeId};
 use std::{env, fs};
 use std::cmp::Ordering::{Greater, Less};
 use regex::Regex;

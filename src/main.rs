@@ -1,4 +1,3 @@
-#![feature(box_syntax)]
 #![feature(is_some_and)]
 #![feature(macro_metavar_expr)]
 

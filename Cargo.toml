@@ -3,6 +3,9 @@ name = "powder_rs"
 version = "0.1.0"
 edition = "2021"
 
+[rust]
+debuginfo-level = 1
+
 [lib]
 proc-macro = true
 
@@ -16,8 +19,9 @@ rand = "0.8.5"
 regex = "1.7.1"
 
 [profile.dev]
-opt-level = 1
+opt-level = 0
 
 [profile.release]
 opt-level = 3
 debug = true
+#lto = true

@@ -23,14 +23,14 @@ impl Particle {
 }
 
 pub struct Simulation {
-    pub parts : Box<[Particle; XYRES]>,
-    pub pmap : Box<[Option<usize>; XYRES]>,
+    pub parts : Box<[Particle]>,
+    pub pmap : Box<[Option<usize>]>,
     part_count: usize,
 }
 impl Simulation {
     pub fn new() -> Self {
-        let p: Box<[Particle; XYRES]> = box[PT_EMPTY; XYRES];
-        let pm: Box<[Option<usize>; XYRES]> = box[None; XYRES];
+        let p = vec![PT_EMPTY; XYRES].into_boxed_slice();
+        let pm = vec![None; XYRES].into_boxed_slice();
 
         Self {
             parts: p,
