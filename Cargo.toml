@@ -17,6 +17,8 @@ glium-glyph = "0.14.0"
 cgmath = "0.18.0"
 rand = "0.8.5"
 regex = "1.7.1"
+#syn = "2.0.15"
+#quote = "1.0.26"
 
 [profile.dev]
 opt-level = 0
