@@ -1,9 +1,14 @@
+use std::cmp::max;
+use std::intrinsics::{maxnumf32, minnumf32};
+use std::rc::Rc;
 use std::time::Instant;
 
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
+use cgmath::{InnerSpace, Matrix4, SquareMatrix, Vector2, Vector3};
+use glium::backend::Facade;
 use glium::glutin::event_loop::EventLoop;
 use glium::glutin::window::WindowBuilder;
 use glium::glutin::GlProfile;
+use glium::glutin::GlRequest::Latest;
 use glium::index::PrimitiveType;
 use glium::program::ProgramCreationInput;
 use glium::texture::{MipmapsOption, UncompressedFloatFormat};
@@ -23,7 +28,7 @@ pub struct Vert {
 implement_vertex!(Vert, pos, tex_coords);
 
 pub struct GLRenderer<'a> {
-	pub display: Display,
+	pub display: Rc<Display>,
 	vert_buffer: VertexBuffer<Vert>,
 	ind_buffer:  IndexBuffer<u32>,
 	program:     Program,
@@ -58,7 +63,8 @@ impl GLRenderer<'_> {
 		//.with_transparent(true);
 		let cb = glutin::ContextBuilder::new()
 			.with_vsync(false)
-			.with_gl_profile(GlProfile::Core);
+			.with_gl_profile(GlProfile::Core)
+			.with_gl(Latest);
 
 		let display = Display::new(wb, cb, &event_loop).unwrap();
 
@@ -139,7 +145,7 @@ impl GLRenderer<'_> {
 					YRES as u32,
 				)
 				.expect("Can't create texture"),
-				display,
+				display: Rc::new(display),
 				vert_buffer,
 				ind_buffer,
 				program,
@@ -157,66 +163,16 @@ impl GLRenderer<'_> {
 			event_loop,
 		)
 	}
-
-	fn blend_colors(col_a: (u8, u8, u8, u8), col_b: (u8, u8, u8, u8), t: f32) -> (u8, u8, u8, u8) {
-		let mut col = col_a;
-		let rt = 1.0 - t;
-		col.0 = (col.0 as f32 * rt) as u8 + (col_b.0 as f32 * t) as u8;
-		col.1 = (col.1 as f32 * rt) as u8 + (col_b.1 as f32 * t) as u8;
-		col.2 = (col.2 as f32 * rt) as u8 + (col_b.2 as f32 * t) as u8;
-		col.3 = u8::saturating_add(col.3, col_b.3);
-
-		col
-	}
-
-	// TODO: Move to gui?
-	fn draw_cursor(&self, tex_data: &mut Vec<Vec<(u8, u8, u8, u8)>>, gui: &GameGUI) {
-		for i in 0..gui.cursor.height {
-			let x = gui.cursor.left as usize;
-			let rx = (gui.cursor.left + gui.cursor.width - 1) as usize;
-			let y = (gui.cursor.bottom + i) as usize;
-			tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
-			tex_data[y][rx] = GLRenderer::blend_colors(tex_data[y][rx], (255, 255, 255, 128), 0.5);
-		}
-		for i in 1..gui.cursor.width - 1 {
-			let x = (gui.cursor.left + i) as usize;
-			let ry = (gui.cursor.bottom + gui.cursor.height - 1) as usize;
-			let y = gui.cursor.bottom as usize;
-			tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
-			tex_data[ry][x] = GLRenderer::blend_colors(tex_data[ry][x], (255, 255, 255, 128), 0.5);
-		}
-	}
-
 	pub fn render(&mut self, sim: &Simulation, gui: &mut GameGUI) {
 		// FPS counter
 		let dt = self.frame_start.elapsed().as_micros();
 
 		self.fps_sum += 1000000f64 / dt as f64;
-		// self.perf_sum[0] += (self.timers[1] - self.frame_start).as_micros();
-		// self.perf_sum[1] += (self.timers[2] - self.timers[1]).as_micros();
-		// self.perf_sum[2] += (self.timers[3] - self.timers[2]).as_micros();
 		self.samples += 1;
 
-		gui.immediate_gui.queue_text(
-			format!("{:.2}", self.fps_sum / self.samples as f64).as_str(),
-			Vector2::new(0.0, 0.0),
-			Bounds::None,
-			50f32,
-			None,
-			None,
-		);
+		gui.fps_displ.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32;
 
 		if self.timers[0].elapsed().as_millis() >= 1000 {
-			// let fps = (self.samples as f64 * 1000f64) / self.timers[0].elapsed().as_millis() as f64;
-			// self.fps_sum / self.samples as f64;
-			// println!("From {} samples: {:.2} fps ({:.2}ms) {} parts", self.samples, fps, 1000f64 / fps, sim.get_part_count());
-			//
-			// println!(
-			//     " Timings:\n  Tex Gen: {}μs\n  Tex Write: {}μs\n  Frame Finish: {}μs",
-			//     self.perf_sum[0] / self.samples as u128,
-			//     self.perf_sum[1] / self.samples as u128,
-			//     self.perf_sum[2] / self.samples as u128,
-			// );
 			self.perf_sum = [0; 3];
 			self.fps_sum = 0.0;
 			self.samples = 0;
@@ -224,8 +180,16 @@ impl GLRenderer<'_> {
 		}
 		self.frame_start = Instant::now();
 
-		let view_matrix = Matrix4::from_scale(self.camera_zoom)
-			* Matrix4::from_translation(Vector3 {
+		// Adjust size
+		let (ww, wh) = self.display.get_framebuffer_dimensions();
+		let mut window_size = Vector2::new(ww as f32 / WINW as f32, wh as f32 / WINH as f32);
+		window_size = window_size / minnumf32(window_size.x, window_size.y) as f32;
+
+		#[rustfmt::skip]
+		let view_matrix =
+			Matrix4::from_nonuniform_scale( 1.0 / window_size.x, 1.0 / window_size.y, 1.0) *
+			Matrix4::from_scale(self.camera_zoom) *
+			Matrix4::from_translation(Vector3 {
 				x: self.camera_pan.x,
 				y: self.camera_pan.y,
 				z: 0.0,
@@ -264,10 +228,12 @@ impl GLRenderer<'_> {
 			tex: glium::uniforms::Sampler(&self.texture, self.tex_filter),
 			pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix),
 			grid: gui.grid_size as i32,
+			z: 0f32,
 		};
 
 		let mut frame = self.display.draw();
 		frame.clear_color(1.0 / 255.0, 0.0, 0.0, 0.0);
+
 		frame
 			.draw(
 				&self.vert_buffer,
@@ -278,12 +244,42 @@ impl GLRenderer<'_> {
 			)
 			.expect("Draw error");
 
+		gui.gui_root.borrow().draw(&mut gui.immediate_gui);
 		gui.immediate_gui.draw_queued(&self.display, &mut frame);
 
 		frame.finish().expect("Swap buffers error");
 	}
 
-	fn set_pixel(&mut self, x: usize, y: usize, color: u32) {
+	fn blend_colors(col_a: (u8, u8, u8, u8), col_b: (u8, u8, u8, u8), t: f32) -> (u8, u8, u8, u8) {
+		let mut col = col_a;
+		let rt = 1.0 - t;
+		col.0 = (col.0 as f32 * rt) as u8 + (col_b.0 as f32 * t) as u8;
+		col.1 = (col.1 as f32 * rt) as u8 + (col_b.1 as f32 * t) as u8;
+		col.2 = (col.2 as f32 * rt) as u8 + (col_b.2 as f32 * t) as u8;
+		col.3 = u8::saturating_add(col.3, col_b.3);
+
+		col
+	}
+
+	// TODO: Move to gui?
+	fn draw_cursor(&self, tex_data: &mut Vec<Vec<(u8, u8, u8, u8)>>, gui: &GameGUI) {
+		for i in 0..gui.cursor.height {
+			let x = gui.cursor.left as usize;
+			let rx = (gui.cursor.left + gui.cursor.width - 1) as usize;
+			let y = (gui.cursor.bottom + i) as usize;
+			tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
+			tex_data[y][rx] = GLRenderer::blend_colors(tex_data[y][rx], (255, 255, 255, 128), 0.5);
+		}
+		for i in 1..gui.cursor.width - 1 {
+			let x = (gui.cursor.left + i) as usize;
+			let ry = (gui.cursor.bottom + gui.cursor.height - 1) as usize;
+			let y = gui.cursor.bottom as usize;
+			tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
+			tex_data[ry][x] = GLRenderer::blend_colors(tex_data[ry][x], (255, 255, 255, 128), 0.5);
+		}
+	}
+
+	fn set_pixel(&mut self, _x: usize, _y: usize, _color: u32) {
 		todo!()
 	}
 

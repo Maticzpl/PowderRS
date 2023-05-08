@@ -5,6 +5,7 @@ use crate::gui::GUI;
 use crate::sim::{UI_MARGIN, XRES, YRES};
 use crate::types::PT_TYPES;
 
+// TODO: Rewrite after non immediate mode ui done
 pub fn draw_element_bar(gui: &mut GUI) {
 	let margin = 5.0;
 	let size = Vector2::from([45.0, UI_MARGIN as f32 - (margin * 2.0)]);

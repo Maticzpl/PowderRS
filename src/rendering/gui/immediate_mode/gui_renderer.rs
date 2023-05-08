@@ -1,16 +1,18 @@
 use cgmath::{Matrix4, Vector2, Vector3};
 use glium::index::PrimitiveType;
 use glium::program::ProgramCreationInput;
-use glium::{uniform, Display, DrawParameters, IndexBuffer, Program, Surface, VertexBuffer};
+use glium::{uniform, Display, DrawParameters, IndexBuffer, Program, Rect, Surface, VertexBuffer};
 use glium_glyph::glyph_brush::ab_glyph::FontRef;
 use glium_glyph::glyph_brush::{
-	Color, FontId, GlyphCruncher, HorizontalAlign, Layout, Section, Text, VerticalAlign,
+	BuiltInLineBreaker, Color, FontId, GlyphCruncher, GlyphPositioner, HorizontalAlign, Layout,
+	Section, SectionGeometry, Text, VerticalAlign,
 };
 use glium_glyph::{GlyphBrush, GlyphBrushBuilder};
 
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
 use crate::sim::{WINH, WINW};
 
+#[derive(Copy, Clone)]
 pub enum Bounds {
 	None,
 	Box {
@@ -20,16 +22,16 @@ pub enum Bounds {
 	},
 }
 
-pub struct ImmediateGUI<'a, 'font> {
-	font:               GlyphBrush<'a, FontRef<'font>>, // TODO: check if we need both lifetimes
-	ind_buffer:         IndexBuffer<u32>,
-	vert_buffer:        VertexBuffer<GUIVert>,
-	program:            Program,
-	rect_num:           u32,
-	window_scale_ratio: Vector2<f32>,
+pub struct ImmediateGUI<'a> {
+	font: GlyphBrush<'a, FontRef<'a>>,
+	ind_buffer: IndexBuffer<u32>,
+	vert_buffer: VertexBuffer<GUIVert>,
+	program: Program,
+	rect_num: u32,
+	pub window_scale_ratio: Vector2<f32>,
 }
 
-impl ImmediateGUI<'_, '_> {
+impl ImmediateGUI<'_> {
 	pub(crate) fn new(display: &Display) -> Self {
 		let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Regular.ttf");
 		let font = FontRef::try_from_slice(ttf).unwrap();
@@ -38,7 +40,7 @@ impl ImmediateGUI<'_, '_> {
 		let bold = FontRef::try_from_slice(ttf).unwrap();
 
 		let mut glyph_brush = GlyphBrushBuilder::using_font(font).build(display);
-		let bold_id = glyph_brush.add_font(bold);
+		let _bold_id = glyph_brush.add_font(bold);
 
 		let cap = 1024usize;
 		let ind_buffer: IndexBuffer<u32> = IndexBuffer::empty(
@@ -94,7 +96,10 @@ impl ImmediateGUI<'_, '_> {
 		color: Option<Color>,
 		font: Option<FontId>,
 	) {
-		let section = Section::default()
+		// pos.x *= self.window_scale_ratio.x;
+		// pos.y *= self.window_scale_ratio.y;
+
+		let mut section = Section::default()
 			.add_text(
 				Text::new(text)
 					.with_scale(font_size * self.window_scale_ratio.y)
@@ -103,7 +108,7 @@ impl ImmediateGUI<'_, '_> {
 			)
 			.with_screen_position((pos.x, pos.y));
 
-		let (mut size, h_align, v_align) = match bounds {
+		let (size, h_align, v_align) = match bounds {
 			Bounds::Box {
 				size,
 				h_align,
@@ -125,14 +130,12 @@ impl ImmediateGUI<'_, '_> {
 				}
 			}
 		};
-		// TODO: fix text scaling on window resize
-		// size.x *= self.window_scale_ratio.x;
-		// size.y *= self.window_scale_ratio.y;
 
-		pos.x *= self.window_scale_ratio.x;
-		pos.y *= self.window_scale_ratio.y;
-
-		let layout = Layout::default().h_align(h_align).v_align(v_align);
+		let layout = Layout::Wrap {
+			h_align,
+			v_align,
+			line_breaker: BuiltInLineBreaker::UnicodeLineBreaker,
+		};
 
 		self.font
 			.queue(section.with_bounds(size).with_layout(layout));
@@ -175,17 +178,10 @@ impl ImmediateGUI<'_, '_> {
 		let (w, h) = display.get_framebuffer_dimensions();
 		self.window_scale_ratio = Vector2::from([w as f32 / WINW as f32, h as f32 / WINH as f32]);
 
-		#[rustfmt::skip]
-		let transform = Matrix4::new(
-			 2.0 / (w as f32), 0.0,              0.0, 0.0,
-			 0.0,              2.0 / (h as f32), 0.0, 0.0,
-			 0.0,              0.0,              1.0, 0.0,
-			-1.0,             -1.0,              0.0, 1.0,
-		);
-
+		// Shapes transform
 		let uniforms = uniform! {
 			transform: <Matrix4<f32> as Into<[[f32;4];4]>>::into(
-				Matrix4::from_nonuniform_scale(2.0/WINW as f32, -2.0/WINH as f32, 1.0) *
+				Matrix4::from_nonuniform_scale(2.0/WINW as f32 , -2.0/WINH as f32, 1.0) *
 				Matrix4::from_translation(Vector3::from([-(WINW as f32/2.0), -(WINH as f32/2.0), 0.0]))
 			)
 		};
@@ -199,8 +195,17 @@ impl ImmediateGUI<'_, '_> {
 				&DrawParameters::default(),
 			)
 			.expect("GUI Draw error");
-		self.font
-			.draw_queued_with_transform(transform.into(), display, frame);
+
+		self.font.draw_queued(display, frame);
 		self.rect_num = 0;
+	}
+
+	pub fn measure_text(&mut self, text: &str, font_size: f32) -> Vector2<f32> {
+		let size = self
+			.font
+			.glyph_bounds(Section::default().add_text(Text::new(text).with_scale(font_size)))
+			.unwrap();
+
+		Vector2::new(size.width(), size.height())
 	}
 }

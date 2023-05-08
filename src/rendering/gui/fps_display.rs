@@ -1,0 +1,94 @@
+use std::cell::RefCell;
+use std::intrinsics::maxnumf32;
+use std::rc::{Rc, Weak};
+
+use cgmath::Vector2;
+use glium_glyph::glyph_brush::{Color, FontId};
+
+use crate::define_component;
+use crate::rendering::gui::components::label::Label;
+use crate::rendering::gui::components::ComponentAlignment::LeftTop;
+use crate::rendering::gui::components::{Component, ComponentAlignment, ComponentBase};
+use crate::rendering::gui::immediate_mode::gui_renderer::{Bounds, ImmediateGUI};
+
+pub struct FPSDisplay {
+	base: ComponentBase,
+
+	pub fps: f32,
+	pub tps: f32,
+
+	fps_label: Option<Rc<RefCell<Label>>>,
+	tps_label: Option<Rc<RefCell<Label>>>,
+}
+
+impl FPSDisplay {
+	pub fn new(
+		parent: Weak<RefCell<dyn Component>>,
+		mut gui: &mut ImmediateGUI,
+	) -> Rc<RefCell<Self>> {
+		let mut base = ComponentBase::new(parent);
+		base.set_size(Vector2::new(110.0, 100.0));
+
+		let root = Rc::new(RefCell::new(Self {
+			base,
+			fps: 0.0,
+			tps: 0.0,
+			fps_label: None,
+			tps_label: None,
+		}));
+
+		// FPS
+		let weak = Rc::downgrade(&root);
+
+		let mut fps_label = Label::new(
+			"FPS",
+			50.0,
+			Color::from([1.0, 1.0, 1.0, 1.0]),
+			FontId(0),
+			Bounds::None,
+			Vector2::new(0.0, 50.0),
+			&mut gui,
+			weak,
+		);
+		fps_label.set_alignment(LeftTop);
+
+		let fps_label = Rc::new(RefCell::new(fps_label));
+		root.borrow_mut()
+			.add_child(Rc::clone(&fps_label) as Rc<RefCell<dyn Component>>);
+		root.borrow_mut().fps_label = Some(fps_label);
+
+		// TPS
+		let weak = Rc::downgrade(&root);
+
+		let mut tps_label = Label::new(
+			"TPS",
+			50.0,
+			Color::from([1.0, 1.0, 1.0, 1.0]),
+			FontId(0),
+			Bounds::None,
+			Vector2::new(0.0, 0.0),
+			&mut gui,
+			weak,
+		);
+		tps_label.set_alignment(LeftTop);
+
+		let tps_label = Rc::new(RefCell::new(tps_label));
+		root.borrow_mut()
+			.add_child(Rc::clone(&tps_label) as Rc<RefCell<dyn Component>>);
+		root.borrow_mut().tps_label = Some(tps_label);
+
+		root
+	}
+}
+
+define_component! { FPSDisplay,
+	fn draw(&self, gui: &mut ImmediateGUI) {
+		let fps = self.fps_label.as_ref().unwrap();
+		let tps = self.tps_label.as_ref().unwrap();
+		fps.borrow_mut().set_text(format!("{:.2}", self.fps).as_str(), gui);
+		tps.borrow_mut().set_text(format!("{:.2}", self.tps).as_str(), gui);
+		fps.borrow_mut().set_offset(Vector2::new(0.0, 50.0 * gui.window_scale_ratio.y));
+
+		self.base.draw(gui);
+	}
+}
