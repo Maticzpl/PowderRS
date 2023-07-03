@@ -5,6 +5,7 @@
 
 pub mod gl_renderer;
 pub mod gui;
+pub mod vert;
 
 // borrow checker hates me
 // pub trait CameraController {

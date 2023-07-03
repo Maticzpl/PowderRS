@@ -1,22 +1,31 @@
 use std::cmp::max;
-use std::intrinsics::{maxnumf32, minnumf32};
+use std::intrinsics::{floorf32, maxnumf32, minnumf32, size_of};
 use std::rc::Rc;
-use std::time::Instant;
 
 use cgmath::{InnerSpace, Matrix4, SquareMatrix, Vector2, Vector3};
-use wgpu::{include_wgsl, PresentMode};
+use instant::Instant;
+use wgpu::{BindGroup, Buffer, Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, PresentMode, Sampler, TextureAspect, TextureView, VertexBufferLayout};
+use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::gui::immediate_mode::gui_renderer::Bounds;
+use crate::rendering::vert::Vert;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
-#[derive(Copy, Clone)]
-pub struct Vert {
-	pub pos:        [f32; 2],
-	pub tex_coords: [f32; 2],
+pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
+	1.0, 0.0, 0.0, 0.0,
+	0.0, 1.0, 0.0, 0.0,
+	0.0, 0.0, 0.5, 0.0,
+	0.0, 0.0, 0.5, 1.0,
+);
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct PVMUniform {
+	mat: [[f32; 4]; 4]
 }
 
 pub struct GLRenderer {
@@ -27,6 +36,14 @@ pub struct GLRenderer {
 	pub(crate) size: PhysicalSize<u32>,
 	pub window: Window,
 	render_pipeline: wgpu::RenderPipeline,
+	vertex_buffer: Buffer,
+	index_buffer: Buffer,
+	screen_texture: wgpu::Texture,
+	screen_texture_size: Extent3d,
+	screen_texture_view: TextureView,
+	screen_texture_bind_group: BindGroup,
+	pvm_bind_group: BindGroup,
+	pvm_buffer: Buffer,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -68,7 +85,7 @@ impl GLRenderer {
 			web_sys::window()
 				.and_then(|win| win.document())
 				.and_then(|doc| {
-					let dst = doc.get_element_by_id("wasm-example")?;
+					let dst = doc.get_element_by_id("powderrs")?;
 					let canvas = web_sys::Element::from(window.canvas());
 					dst.append_child(&canvas).ok()?;
 					Some(())
@@ -114,7 +131,7 @@ impl GLRenderer {
 			format: surface_format,
 			width: win_size.width,
 			height: win_size.height,
-			present_mode: PresentMode::Immediate, // Use FiFo for vsync
+			present_mode: PresentMode::Fifo,
 			alpha_mode: surface_caps.alpha_modes[0],
 			view_formats: vec![],
 		};
@@ -122,7 +139,7 @@ impl GLRenderer {
 
 		let (w, h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
 
-		let square: [Vert; 4] = [
+		let square: &[Vert] = &[
 			Vert {
 				pos:        [-w as f32, h as f32],
 				tex_coords: [0f32, 1f32],
@@ -141,20 +158,152 @@ impl GLRenderer {
 			},
 		];
 
-		let square_ind: [u32; 6] = [0, 1, 2, 0, 2, 3];
+		let square_ind: &[u32] = &[0, 1, 2, 0, 2, 3];
 
-		// TODO: replace
-		// let ind_buffer = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &square_ind)
-		// 	.expect("Can't create index buffer");
-		// let vert_buffer = VertexBuffer::new(&display, &square).expect("Can't create vert buffer");
+		let vertex_buffer = device.create_buffer_init(
+			&wgpu::util::BufferInitDescriptor {
+				label: Some("Vertex Buffer"),
+				contents: bytemuck::cast_slice(square),
+				usage: wgpu::BufferUsages::VERTEX,
+			}
+		);
 
+		let index_buffer = device.create_buffer_init(
+			&wgpu::util::BufferInitDescriptor {
+				label: Some("Index Buffer"),
+				contents: bytemuck::cast_slice(square_ind),
+				usage: wgpu::BufferUsages::INDEX,
+			}
+		);
 
 		let shader = device.create_shader_module(include_wgsl!("./shaders/main.wgsl"));
+
+
+		let texture_size = wgpu::Extent3d {
+			width: WINW as u32,
+			height: WINH as u32,
+			depth_or_array_layers: 1,
+		};
+
+		let screen_texture = device.create_texture(
+			&wgpu::TextureDescriptor {
+				size: texture_size,
+				mip_level_count: 1,
+				sample_count: 1,
+				dimension: wgpu::TextureDimension::D2,
+				format: wgpu::TextureFormat::Rgba8Unorm,
+				usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+				label: Some("screen_texture"),
+				view_formats: &[],
+			}
+		);
+		let screen_texture_view = screen_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+			address_mode_u: wgpu::AddressMode::ClampToEdge,
+			address_mode_v: wgpu::AddressMode::ClampToEdge,
+			address_mode_w: wgpu::AddressMode::ClampToEdge,
+			mag_filter: wgpu::FilterMode::Nearest,
+			min_filter: wgpu::FilterMode::Nearest,
+			mipmap_filter: wgpu::FilterMode::Nearest,
+			..Default::default()
+		});
+
+		let texture_bind_group_layout = device.create_bind_group_layout(
+			&wgpu::BindGroupLayoutDescriptor {
+				entries: &[
+					wgpu::BindGroupLayoutEntry {
+						binding: 0,
+						visibility: wgpu::ShaderStages::FRAGMENT,
+						ty: wgpu::BindingType::Texture {
+							multisampled: false,
+							view_dimension: wgpu::TextureViewDimension::D2,
+							sample_type: wgpu::TextureSampleType::Float {filterable: false},
+						},
+						count: None,
+					},
+					wgpu::BindGroupLayoutEntry {
+						binding: 1,
+						visibility: wgpu::ShaderStages::FRAGMENT,
+						ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+						count: None,
+					},
+				],
+				label: Some("texture_bind_group_layout"),
+			}
+		);
+
+		let screen_texture_bind_group = device.create_bind_group(
+			&wgpu::BindGroupDescriptor {
+				layout: &texture_bind_group_layout,
+				entries: &[
+					wgpu::BindGroupEntry {
+						binding: 0,
+						resource: wgpu::BindingResource::TextureView(&screen_texture_view),
+					},
+					wgpu::BindGroupEntry {
+						binding: 1,
+						resource: wgpu::BindingResource::Sampler(&sampler),
+					}
+				],
+				label: Some("texture_bind_group"),
+			}
+		);
+
+		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
+		let model_matrix: Matrix4<f32> = Matrix4::from_translation(Vector3 {
+			x: -((UI_MARGIN / 2) as f32),
+			y: -((UI_MARGIN / 2) as f32),
+			z: 0.0,
+		}) * Matrix4::from_nonuniform_scale(
+			XRES as f32 / WINW as f32,
+			YRES as f32 / WINH as f32,
+			1.0,
+		);
+
+		let temp_val = PVMUniform {
+			mat: (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into()
+		};
+
+		let pvm_buffer = device.create_buffer_init(
+			&wgpu::util::BufferInitDescriptor {
+				label: Some("Camera Buffer"),
+				contents: bytemuck::cast_slice(&[temp_val]),
+				usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+			}
+		);
+
+		let pvm_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			entries: &[
+				wgpu::BindGroupLayoutEntry {
+					binding: 0,
+					visibility: wgpu::ShaderStages::VERTEX,
+					ty: wgpu::BindingType::Buffer {
+						ty: wgpu::BufferBindingType::Uniform,
+						has_dynamic_offset: false,
+						min_binding_size: None,
+					},
+					count: None,
+				}
+			],
+			label: Some("pvm_bind_group_layout"),
+		});
+
+		let pvm_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+			layout: &pvm_bind_group_layout,
+			entries: &[
+				wgpu::BindGroupEntry {
+					binding: 0,
+					resource: pvm_buffer.as_entire_binding(),
+				}
+			],
+			label: Some("pvm_bind_group"),
+		});
 
 		let render_pipeline_layout =
 			device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 				label: Some("Render Pipeline Layout"),
-				bind_group_layouts: &[],
+				bind_group_layouts: &[&texture_bind_group_layout, &pvm_bind_group_layout],
 				push_constant_ranges: &[],
 			});
 
@@ -164,7 +313,9 @@ impl GLRenderer {
 			vertex: wgpu::VertexState {
 				module: &shader,
 				entry_point: "vs_main",
-				buffers: &[],
+				buffers: &[
+					Vert::desc()
+				],
 			},
 			fragment: Some(wgpu::FragmentState {
 				module: &shader,
@@ -179,7 +330,7 @@ impl GLRenderer {
 				topology: wgpu::PrimitiveTopology::TriangleList,
 				strip_index_format: None,
 				front_face: wgpu::FrontFace::Ccw,
-				cull_mode: Some(wgpu::Face::Back),
+				cull_mode: None,
 				polygon_mode: wgpu::PolygonMode::Fill,
 				unclipped_depth: false,
 				conservative: false,
@@ -193,23 +344,6 @@ impl GLRenderer {
 			multiview: None,
 		});
 
-		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
-		let model_matrix: Matrix4<f32> = Matrix4::from_translation(Vector3 {
-			x: -((UI_MARGIN / 2) as f32),
-			y: -((UI_MARGIN / 2) as f32),
-			z: 0.0,
-		}) * Matrix4::from_nonuniform_scale(
-			XRES as f32 / WINW as f32,
-			YRES as f32 / WINH as f32,
-			1.0,
-		);
-
-		// let tex_filter = SamplerBehavior {
-		// 	minify_filter: MinifySamplerFilter::Linear,
-		// 	magnify_filter: MagnifySamplerFilter::Nearest,
-		// 	..Default::default()
-		// };
-
 		(
 			Self {
 				window,
@@ -219,6 +353,14 @@ impl GLRenderer {
 				config,
 				size: win_size,
 				render_pipeline,
+				vertex_buffer,
+				index_buffer,
+				screen_texture,
+				screen_texture_size: texture_size,
+				screen_texture_view,
+				screen_texture_bind_group,
+				pvm_buffer,
+				pvm_bind_group,
 
 				camera_zoom: 1.0,
 				camera_pan: Vector2::from([0.0, 0.0]),
@@ -278,23 +420,44 @@ impl GLRenderer {
 			});
 
 		self.view_matrix = view_matrix;
-		let camera_matrix = self.proj_matrix * self.view_matrix * self.model_matrix;
-		/* //TODO: rewrite
-		// // Generate texture
-		// // self.texture = Texture2d::empty_with_format(&self.display, UncompressedFloatFormat::U8U8U8U8, MipmapsOption::NoMipmap, XRES as u32, YRES as u32).expect("Can't create texture");
-		// let mut tex_data = vec![vec![(0u8, 0u8, 0u8, 0u8); XRES]; YRES];
-		// let mut counter = 0;
-		// for i in 0..sim.parts.len() {
-		// 	if counter >= sim.get_part_count() {
-		// 		break;
-		// 	}
-		// 	let pt = sim.get_part(i);
-		// 	if pt.p_type != 0 {
-		// 		let col = pt.get_type().col;
-		// 		tex_data[pt.y as usize][pt.x as usize] = (col[0], col[1], col[2], pt.p_type as u8);
-		// 		counter += 1;
-		// 	}
-		// }
+		let camera_matrix = PVMUniform { mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix * self.view_matrix * self.model_matrix).into() };
+		self.queue.write_buffer(&self.pvm_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
+
+		// Generate texture
+		let mut tex_data = vec![0u8; 4 * XRES * YRES];
+		let mut counter = 0;
+		for i in 0..sim.parts.len() {
+			if counter >= sim.get_part_count() {
+				break;
+			}
+			let pt = sim.get_part(i);
+			if pt.p_type != 0 {
+				let col = pt.get_type().col;
+				let pos = (pt.x as usize + (pt.y as usize * WINW)) * 4;
+				tex_data[pos + 0] = col[0];
+				tex_data[pos + 1] = col[1];
+				tex_data[pos + 2] = col[2];
+				tex_data[pos + 3] = pt.p_type as u8;
+				counter += 1;
+			}
+		}
+
+		self.queue.write_texture(
+			ImageCopyTexture{
+				texture: &self.screen_texture,
+				aspect: TextureAspect::All,
+				origin: Origin3d::ZERO,
+				mip_level: 0
+			},
+			tex_data.as_slice(),
+			ImageDataLayout {
+				offset: 0,
+				bytes_per_row: Some(4 * WINW as u32),
+				rows_per_image: Some(WINH as u32),
+			},
+			self.screen_texture_size
+		);
+
 		// self.draw_cursor(&mut tex_data, &gui);
 		// self.texture.write(
 		// 	Rect {
@@ -328,7 +491,7 @@ impl GLRenderer {
 		//
 		// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
 		// gui.immediate_gui.draw_queued(&self.display, &mut frame);
-		*/
+
 
 		{
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -338,7 +501,7 @@ impl GLRenderer {
 					resolve_target: None,
 					ops: wgpu::Operations {
 						load: wgpu::LoadOp::Clear(wgpu::Color {
-							r: 0.1,
+							r: 0.0,
 							g: 0.0,
 							b: 0.0,
 							a: 1.0, // if window is transparent remember to make this 0
@@ -350,7 +513,11 @@ impl GLRenderer {
 			});
 
 			render_pass.set_pipeline(&self.render_pipeline);
-			render_pass.draw(0..3, 0..1);
+			render_pass.set_bind_group(0, &self.screen_texture_bind_group, &[]);
+			render_pass.set_bind_group(1, &self.pvm_bind_group, &[]);
+			render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+			render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+			render_pass.draw_indexed(0..6, 0, 0..1);
 		}
 
 		// submit will accept anything that implements IntoIter

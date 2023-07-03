@@ -1,5 +1,7 @@
 #![feature(core_intrinsics)]
 
+extern crate core;
+
 use winit::{
 	event::*,
 	event_loop::{ControlFlow, EventLoop},
@@ -13,9 +15,9 @@ mod types;
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Instant;
 
 use cgmath::Vector2;
+use instant::Instant;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 use crate::input::input_handling::{handle_events, handle_input, InputData};

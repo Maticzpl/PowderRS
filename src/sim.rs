@@ -3,7 +3,7 @@ use rand::prelude::*;
 
 pub const WINW: usize = (1.3 * 1024.0) as usize;
 pub const WINH: usize = (1.3 * 576.0) as usize;
-pub const UI_MARGIN: usize = 30;
+pub const UI_MARGIN: usize = 0;
 pub const XRES : usize = WINW - UI_MARGIN;
 pub const YRES : usize = WINH - UI_MARGIN;
 pub const XYRES : usize = XRES * YRES;
