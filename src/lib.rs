@@ -1,82 +1,150 @@
-#![feature(proc_macro_quote)]
+#![feature(core_intrinsics)]
 
-extern crate proc_macro;
+use winit::{
+	event::*,
+	event_loop::{ControlFlow, EventLoop},
+	window::WindowBuilder,
+};
 
-use std::cmp::Ordering::{Greater, Less};
-use std::string::String;
-use std::{env, fs};
+mod input;
+mod rendering;
+mod sim;
+mod types;
 
-use proc_macro::{TokenStream, TokenTree};
-use regex::Regex;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::time::Instant;
 
-// ik this is garbage, just learning macros :P
-#[proc_macro]
-pub fn get_part_types_in_dir(stream: TokenStream) -> TokenStream {
-	let dir = match stream.into_iter().next().unwrap() {
-		TokenTree::Literal(val) => Some(val.to_string().replace("\"", "")),
-		_ => None,
+use cgmath::Vector2;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+
+use crate::input::input_handling::{handle_events, handle_input, InputData};
+use crate::rendering::gl_renderer::GLRenderer;
+use crate::rendering::gui::game_gui::GameGUI;
+use crate::rendering::gui::immediate_mode::gui_renderer::Bounds;
+use crate::sim::{Particle, Simulation, WINH, WINW};
+
+#[cfg(target_arch="wasm32")]
+use wasm_bindgen::prelude::*;
+
+
+fn tick(
+	sim: &mut Simulation,
+	ren: &mut GLRenderer,
+	// gui: &mut GameGUI, todo uncomment
+	input: &mut InputData,
+	tick_state: &mut TickFnState,
+) {
+	handle_input(sim, ren, /*gui,*/ input, tick_state); //todo uncomment
+
+	let dt = tick_state.time_since_tick.elapsed().as_micros();
+	let tps = 1000000 as f64 / dt as f64;
+	tick_state.time_since_tick = Instant::now();
+
+	// draw cap
+	if tick_state.time_since_render.elapsed().as_micros() > (1000000 / 80) {
+		//gui.fps_displ.borrow_mut().tps = tps as f32; //todo uncomment
+		ren.window.request_redraw();
+		tick_state.time_since_render = Instant::now();
+	}
+}
+
+pub struct TickFnState {
+	pub pan_started:       bool,
+	pub pan_start_pos:     Vector2<f32>,
+	pub pan_original:      Vector2<f32>,
+	pub paused:            bool,
+	pub time_since_render: Instant,
+	pub time_since_tick:   Instant,
+}
+
+
+#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
+pub async fn run() {
+	let mut sim = Simulation::new();
+	let ren = GLRenderer::new().await;
+	let event_loop = ren.1;
+	let ren = ren.0;
+	//let gui = GameGUI::new(/*Rc::clone(&ren.display)*/); // TODO: this
+
+	let tick_state = TickFnState {
+		// TODO: Ton of things here should be elsewhere
+		pan_started:       false,
+		pan_start_pos:     Vector2 { x: 0.0, y: 0.0 },
+		pan_original:      Vector2::from([0.0, 0.0]),
+		paused:            false,
+		time_since_render: Instant::now(),
+		time_since_tick:   Instant::now(),
 	};
 
-	let path = format!(
-		"{}/{}",
-		env::current_dir().unwrap().to_str().unwrap(),
-		dir.unwrap()
-	);
-	let mut files: Vec<_> = fs::read_dir(path.clone())
-		.expect(format!("Can't find dir {}", path).as_str())
-		.map(|file| file.unwrap().path())
-		.collect();
+	let input: InputData = InputData {
+		// TODO: Ton of things here should be elsewhere
+		mouse_buttons:      HashMap::new(),
+		prev_mouse_buttons: HashMap::new(),
+		keys:               HashMap::new(),
+		prev_keys:          HashMap::new(),
+		mouse_pos:          PhysicalPosition { x: 0.0, y: 0.0 },
+		scroll:             0.0,
+		win_size:           PhysicalSize {
+			width:  WINW as u32,
+			height: WINH as u32,
+		},
+	};
 
-	// ngl this is really awful xdd
-	files.sort_by(|a, b| {
-		if !a.is_file() || a.file_name().unwrap().to_str().unwrap() == "mod.rs" {
-			return Less;
-		}
-		if !b.is_file() || b.file_name().unwrap().to_str().unwrap() == "mod.rs" {
-			return Greater;
-		}
+	for i in 0..100 {
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      i + 20,
+			y:      i + 50,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      i + 20,
+			y:      i + 80,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      i + 120,
+			y:      i + 50,
+		});
 
-		let reg =
-			Regex::new(r"(.*\n)*.*(const\s*PT_.*(\n.*)*id\s*:\s*)(?P<res>\d+)(,)(.*\n?)*").unwrap();
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      i * 4,
+			y:      450,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      (i * 4) + 1,
+			y:      450,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      (i * 4) + 2,
+			y:      450,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      (i * 4) + 3,
+			y:      450,
+		});
 
-		let va: u32 = reg
-			.replace_all(fs::read_to_string(a).unwrap().as_str(), "$res")
-			.parse()
-			.unwrap();
-		let vb: u32 = reg
-			.replace_all(fs::read_to_string(b).unwrap().as_str(), "$res")
-			.parse()
-			.unwrap();
-
-		va.cmp(&vb)
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      0,
+			y:      450 - i,
+		});
+		sim.add_part(Particle {
+			p_type: 1,
+			x:      400,
+			y:      450 - i,
+		});
+	}
+	sim.add_part(Particle {
+		p_type: 1,
+		x:      (WINW / 2) as u32,
+		y:      (WINH / 2) as u32,
 	});
 
-	let len = files.len() - 1; // to lazy to do proper counting
-
-	let mut imports: String = String::new();
-	let mut strc: String = format!("pub const PT_TYPES : [PartType; {}] = [", len);
-	for path in files {
-		if path.is_file() && path.file_name().unwrap() != "mod.rs" {
-			let type_ident = path
-				.file_name()
-				.unwrap()
-				.to_str()
-				.unwrap()
-				.split(".")
-				.next()
-				.unwrap();
-			imports += format!(
-				"pub mod {};\npub use {}::PT_{};",
-				type_ident,
-				type_ident,
-				type_ident.to_uppercase()
-			)
-			.as_str();
-			strc += format!("PT_{},\n", type_ident.to_uppercase()).as_str();
-		}
-	}
-	strc.remove(strc.len() - 1);
-	strc += "];";
-
-	return format!("{}\n{}", imports, strc).parse().unwrap();
+	handle_events(event_loop, input, sim, ren, /*gui,*/ tick_state); // todo uncomment
 }

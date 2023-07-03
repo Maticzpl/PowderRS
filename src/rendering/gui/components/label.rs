@@ -2,7 +2,8 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use cgmath::{Vector2, Zero};
-use glium_glyph::glyph_brush::{Color, FontId, HorizontalAlign, VerticalAlign};
+use wgpu::Color;
+use wgpu_glyph::{FontId, HorizontalAlign, VerticalAlign};
 
 use crate::define_component;
 use crate::rendering::gui::components::{Component, ComponentAlignment, ComponentBase};

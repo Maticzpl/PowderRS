@@ -3,7 +3,8 @@ use std::intrinsics::maxnumf32;
 use std::rc::{Rc, Weak};
 
 use cgmath::Vector2;
-use glium_glyph::glyph_brush::{Color, FontId};
+use wgpu::Color;
+use wgpu_glyph::FontId;
 
 use crate::define_component;
 use crate::rendering::gui::components::label::Label;
@@ -43,7 +44,7 @@ impl FPSDisplay {
 		let mut fps_label = Label::new(
 			"FPS",
 			50.0,
-			Color::from([1.0, 1.0, 1.0, 1.0]),
+			Color::WHITE,
 			FontId(0),
 			Bounds::None,
 			Vector2::new(0.0, 50.0),
@@ -63,7 +64,7 @@ impl FPSDisplay {
 		let mut tps_label = Label::new(
 			"TPS",
 			50.0,
-			Color::from([1.0, 1.0, 1.0, 1.0]),
+			Color::WHITE,
 			FontId(0),
 			Bounds::None,
 			Vector2::new(0.0, 0.0),

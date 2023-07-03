@@ -1,10 +1,10 @@
 use std::collections::HashMap;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
+use winit::event::ElementState::Pressed;
+use winit::event::MouseScrollDelta::LineDelta;
+use winit::event_loop::EventLoop;
 
-use glium::glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glium::glutin::event::ElementState::Pressed;
-use glium::glutin::event::MouseScrollDelta::LineDelta;
-use glium::glutin::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
-use glium::glutin::event_loop::EventLoop;
 
 use crate::rendering::gl_renderer::GLRenderer;
 use crate::rendering::gui::game_gui::GameGUI;
@@ -40,13 +40,13 @@ pub fn handle_events(
 	event_loop: EventLoop<()>,
 	mut input: InputData,
 	mut sim: Simulation,
-	mut ren: GLRenderer<'static>,
-	mut gui: GameGUI<'static>,
+	mut ren: GLRenderer,
+	//mut gui: GameGUI<'static>, todo uncomment
 	mut tick_state: TickFnState,
 ) {
 	event_loop.run(move |event, _, flow| {
 		match event {
-			Event::WindowEvent { event: ev, .. } => {
+			Event::WindowEvent { event: ev, window_id, .. } if ren.window.id() == window_id => {
 				match ev {
 					WindowEvent::CloseRequested => {
 						flow.set_exit();
@@ -90,14 +90,28 @@ pub fn handle_events(
 						}
 					}
 					WindowEvent::Resized { 0: size } => {
-						input.win_size = size;
+						ren.resize(size);
+					}
+					WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+						ren.resize(*new_inner_size);
 					}
 
 					_ => {}
 				}
 			}
+			Event::RedrawRequested(window_id) if window_id == ren.window.id() => {
+				match ren.render(&sim/*, &mut gui*/) { //todo uncomment
+					Ok(_) => {}
+					// Reconfigure the surface if lost
+					Err(wgpu::SurfaceError::Lost) => ren.resize(ren.size),
+					// The system is out of memory, we should probably quit
+					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
+					// All other errors (Outdated, Timeout) should be resolved by the next frame
+					Err(e) => eprintln!("{:?}", e),
+				}
+			}
 			Event::MainEventsCleared => {
-				tick(&mut sim, &mut ren, &mut gui, &mut input, &mut tick_state);
+				tick(&mut sim, &mut ren/*, &mut gui*/, &mut input, &mut tick_state); // todo uncomment
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
 			}

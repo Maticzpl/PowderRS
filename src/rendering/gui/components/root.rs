@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use cgmath::{Vector2, Zero};
-use glium::Display;
 
 use crate::rendering::gui::components::{Component, ComponentAlignment};
+use crate::rendering::gui::game_gui::Display;
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 
 pub struct Root {
@@ -24,7 +24,7 @@ impl Root {
 
 impl Component for Root {
 	fn get_size(&self) -> Vector2<f32> {
-		let (w, h) = self.display.get_framebuffer_dimensions();
+		let (w, h) = (0,0); // TODO window size here
 
 		Vector2::new(w as f32, h as f32)
 	}

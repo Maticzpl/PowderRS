@@ -1,7 +1,17 @@
-use crate::sim::{Particle, Simulation};
-use powder_rs::{get_part_types_in_dir};
+mod none;
+mod brck;
+mod dust;
 
-get_part_types_in_dir!("src/types");
+use crate::sim::{Particle, Simulation};
+pub use none::PT_NONE;
+pub use brck::PT_BRCK;
+pub use dust::PT_DUST;
+
+pub const PT_TYPES: [PartType; 3] = [
+    PT_NONE,
+    PT_BRCK,
+    PT_DUST
+];
 
 #[derive(Copy, Clone)]
 pub enum PartBehaviour {
