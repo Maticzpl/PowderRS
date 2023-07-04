@@ -1,19 +1,21 @@
-use wgpu::{PresentMode, Surface, SurfaceConfiguration};
+use wgpu::{CommandEncoder, Device, DeviceType, PresentMode, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-struct Core {
+pub struct Core {
     pub instance: wgpu::Instance,
-    pub event_loop: EventLoop<()>,
     pub window: Window,
     pub window_size: PhysicalSize<u32>,
     pub surface: Surface,
+    pub surface_format: TextureFormat,
+    pub device: Device,
     pub config: SurfaceConfiguration,
+    pub queue: Queue,
 }
 
 impl Core {
-    pub async fn new(title: &str, window_size: PhysicalSize<u32>) -> Self {
+    pub async fn new(title: &str, window_size: PhysicalSize<u32>, event_loop: &EventLoop<()>) -> Self {
         cfg_if::cfg_if! {
 			if #[cfg(target_arch = "wasm32")] {
 				std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -28,12 +30,9 @@ impl Core {
             dx12_shader_compiler: Default::default(),
         });
 
-        let event_loop = EventLoop::new();
-        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        let window = WindowBuilder::new().build(event_loop).unwrap();
         window.set_inner_size(window_size);
         window.set_title(title);
-        // window.set_resizable(true); // TODO: add outside in gl_renderer.rs
-        // window.set_transparent(false);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -59,6 +58,16 @@ impl Core {
             },
         ).await.unwrap();
 
+        let device_type = match adapter.get_info().device_type {
+            DeviceType::Other => {"Other"}
+            DeviceType::IntegratedGpu => {"Integrated GPU"}
+            DeviceType::DiscreteGpu => {"Discrete GPU"}
+            DeviceType::VirtualGpu => {"Virtual GPU"}
+            DeviceType::Cpu => {"CPU"}
+        };
+
+        println!("Device: {}, Driver: {} {}, Type: {}", adapter.get_info().name, adapter.get_info().driver, adapter.get_info().driver_info, device_type);
+
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 features: wgpu::Features::empty(),
@@ -72,6 +81,7 @@ impl Core {
             None,
         ).await.unwrap();
 
+
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps.formats.iter()
             .copied()
@@ -79,7 +89,7 @@ impl Core {
             .unwrap_or(surface_caps.formats[0]);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
+            format: surface_format, // TODO: USE THIS EVERYWHERE ELSE
             width: window_size.width,
             height: window_size.height,
             present_mode: PresentMode::Fifo,
@@ -90,11 +100,13 @@ impl Core {
 
         Self {
             instance,
-            event_loop,
             window,
             window_size,
             surface,
-            config
+            surface_format,
+            device,
+            queue,
+            config,
         }
     }
 }

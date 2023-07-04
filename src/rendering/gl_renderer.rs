@@ -5,7 +5,7 @@ use std::rc::Rc;
 use cgmath::{InnerSpace, Matrix4, SquareMatrix, Vector2, Vector3};
 use cgmath::num_traits::abs;
 use instant::Instant;
-use wgpu::{BindGroup, Buffer, Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, PresentMode, Sampler, TextureAspect, TextureView, VertexBufferLayout};
+use wgpu::{BindGroup, BlendState, Buffer, ColorTargetState, Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, PresentMode, Sampler, TextureAspect, TextureFormat, TextureView, VertexBufferLayout};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
@@ -15,7 +15,8 @@ use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::gui::immediate_mode::gui_renderer::Bounds;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
-use crate::rendering::wgpu::pipeline::{Pipeline, Shader, ShaderType};
+use crate::rendering::wgpu::core::Core;
+use crate::rendering::wgpu::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
 use crate::rendering::wgpu::vertex_type::VertexType;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
@@ -37,21 +38,12 @@ struct Uniforms {
 }
 
 pub struct GLRenderer {
-	surface: wgpu::Surface,
-	device: wgpu::Device,
-	queue: wgpu::Queue,
-	config: wgpu::SurfaceConfiguration,
-	pub(crate) size: PhysicalSize<u32>,
-	pub window: Window,
-	render_pipeline: wgpu::RenderPipeline,
-	vertex_buffer: Buffer,
-	index_buffer: Buffer,
+	pub rendering_core: Core,
+	pub pipeline: Pipeline,
+
 	screen_texture: wgpu::Texture,
 	screen_texture_size: Extent3d,
 	screen_texture_view: TextureView,
-	screen_texture_bind_group: BindGroup,
-	uniform_bind_group: BindGroup,
-	uniform_buffer: Buffer,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -69,81 +61,10 @@ pub struct GLRenderer {
 
 impl GLRenderer {
 	pub async fn new() -> (Self, EventLoop<()>) {
-		let win_size = PhysicalSize::new(WINW as u32, WINH as u32);
-
-		cfg_if::cfg_if! {
-			if #[cfg(target_arch = "wasm32")] {
-				std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-				console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
-			} else {
-				env_logger::init();
-			}
-		}
-
 		let event_loop = EventLoop::new();
-		let window = WindowBuilder::new().build(&event_loop).unwrap();
-		window.set_inner_size(win_size);
-		window.set_title("PowderRS");
-		window.set_resizable(true);
-		window.set_transparent(false); // (;
-
-		#[cfg(target_arch = "wasm32")]
-		{
-			use winit::platform::web::WindowExtWebSys;
-			web_sys::window()
-				.and_then(|win| win.document())
-				.and_then(|doc| {
-					let dst = doc.get_element_by_id("powderrs")?;
-					let canvas = web_sys::Element::from(window.canvas());
-					dst.append_child(&canvas).ok()?;
-					Some(())
-				})
-				.expect("Couldn't append canvas to document body.");
-		}
-
-		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-			backends: wgpu::Backends::all(),
-			dx12_shader_compiler: Default::default(),
-		});
-
-		let surface = unsafe { instance.create_surface(&window) }.unwrap();
-
-		let adapter = instance.request_adapter(
-			&wgpu::RequestAdapterOptions {
-				power_preference: wgpu::PowerPreference::HighPerformance,
-				compatible_surface: Some(&surface),
-				force_fallback_adapter: false,
-			},
-		).await.unwrap();
-
-		let (device, queue) = adapter.request_device(
-			&wgpu::DeviceDescriptor {
-				features: wgpu::Features::empty(),
-				limits: if cfg!(target_arch = "wasm32") {
-					wgpu::Limits::downlevel_webgl2_defaults()
-				} else {
-					wgpu::Limits::default()
-				},
-				label: None,
-			},
-			None,
-		).await.unwrap();
-
-		let surface_caps = surface.get_capabilities(&adapter);
-		let surface_format = surface_caps.formats.iter()
-			.copied()
-			.find(|f| f.is_srgb())
-			.unwrap_or(surface_caps.formats[0]);
-		let config = wgpu::SurfaceConfiguration {
-			usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-			format: surface_format,
-			width: win_size.width,
-			height: win_size.height,
-			present_mode: PresentMode::Fifo,
-			alpha_mode: surface_caps.alpha_modes[0],
-			view_formats: vec![],
-		};
-		surface.configure(&device, &config);
+		let rendering_core = Core::new("PowderRS", PhysicalSize::new(WINW as u32, WINH as u32), &event_loop).await;
+		rendering_core.window.set_resizable(true);
+		rendering_core.window.set_transparent(false); // (;
 
 		let (w, h) = (WINW as f32 / 2.0, WINH as f32 / 2.0);
 
@@ -168,7 +89,7 @@ impl GLRenderer {
 
 		let square_ind: &[u32] = &[0, 1, 2, 0, 2, 3];
 
-		let vertex_buffer = device.create_buffer_init(
+		let vertex_buffer = rendering_core.device.create_buffer_init(
 			&wgpu::util::BufferInitDescriptor {
 				label: Some("Vertex Buffer"),
 				contents: bytemuck::cast_slice(square),
@@ -176,7 +97,7 @@ impl GLRenderer {
 			}
 		);
 
-		let index_buffer = device.create_buffer_init(
+		let index_buffer = rendering_core.device.create_buffer_init(
 			&wgpu::util::BufferInitDescriptor {
 				label: Some("Index Buffer"),
 				contents: bytemuck::cast_slice(square_ind),
@@ -184,15 +105,15 @@ impl GLRenderer {
 			}
 		);
 
-		let shader = device.create_shader_module(include_wgsl!("./shaders/main.wgsl"));
+		let shader = rendering_core.device.create_shader_module(include_wgsl!("./shaders/main.wgsl"));
 
-		let texture_size = wgpu::Extent3d {
+		let texture_size = wgpu::Extent3d { // TODO: Texture abstraction
 			width: WINW as u32,
 			height: WINH as u32,
 			depth_or_array_layers: 1,
 		};
 
-		let screen_texture = device.create_texture(
+		let screen_texture = rendering_core.device.create_texture(
 			&wgpu::TextureDescriptor {
 				size: texture_size,
 				mip_level_count: 1,
@@ -206,7 +127,7 @@ impl GLRenderer {
 		);
 		let screen_texture_view = screen_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+		let sampler = rendering_core.device.create_sampler(&wgpu::SamplerDescriptor {
 			address_mode_u: wgpu::AddressMode::ClampToEdge,
 			address_mode_v: wgpu::AddressMode::ClampToEdge,
 			address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -216,7 +137,7 @@ impl GLRenderer {
 			..Default::default()
 		});
 
-		let texture_bind_group_layout = device.create_bind_group_layout(
+		let texture_bind_group_layout = rendering_core.device.create_bind_group_layout(
 			&wgpu::BindGroupLayoutDescriptor {
 				entries: &[
 					wgpu::BindGroupLayoutEntry {
@@ -240,7 +161,7 @@ impl GLRenderer {
 			}
 		);
 
-		let screen_texture_bind_group = device.create_bind_group(
+		let screen_texture_bind_group = rendering_core.device.create_bind_group(
 			&wgpu::BindGroupDescriptor {
 				layout: &texture_bind_group_layout,
 				entries: &[
@@ -275,42 +196,6 @@ impl GLRenderer {
 			padding: 0f64,
 		};
 
-		let uniform_buffer = device.create_buffer_init(
-			&wgpu::util::BufferInitDescriptor {
-				label: Some("Uniform Buffer"),
-				contents: bytemuck::cast_slice(&[temp_val]),
-				usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-			}
-		);
-
-		let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-			entries: &[
-				wgpu::BindGroupLayoutEntry {
-					binding: 0,
-					visibility: wgpu::ShaderStages::VERTEX,
-					ty: wgpu::BindingType::Buffer {
-						ty: wgpu::BufferBindingType::Uniform,
-						has_dynamic_offset: false,
-						min_binding_size: None,
-					},
-					count: None,
-				}
-			],
-			label: Some("uniform_bind_group_layout"),
-		});
-
-		let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-			layout: &uniform_bind_group_layout,
-			entries: &[
-				wgpu::BindGroupEntry {
-					binding: 0,
-					resource: uniform_buffer.as_entire_binding(),
-				}
-			],
-			label: Some("uniform_bind_group"),
-		});
-
-		// Own abstraction test TODO: review -------------------------------------------------------
 		let vertex_desc = &[Vert::description()];
 		let vert = Shader {
 			module: &shader,
@@ -323,74 +208,27 @@ impl GLRenderer {
 			shader_type: ShaderType::Fragment
 		};
 
-		let test_pipeline = Pipeline::new(
-			&device, "Rendering",
-			vec![vert, frag], config.format,
-			Uniforms {mat: Matrix4::identity().into(), grid: 0, z: 0.0, padding: 0.0}
-		);
-		// Own abstraction end TODO: review --------------------------------------------------------
-
-		let render_pipeline_layout =
-			device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-				label: Some("Render Pipeline Layout"),
-				bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
-				push_constant_ranges: &[],
-			});
-
-		let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-			label: Some("Render Pipeline"),
-			layout: Some(&render_pipeline_layout),
-			vertex: wgpu::VertexState {
-				module: &shader,
-				entry_point: "vs_main",
-				buffers: &[
-					Vert::description()
-				],
-			},
-			fragment: Some(wgpu::FragmentState {
-				module: &shader,
-				entry_point: "fs_main",
-				targets: &[Some(wgpu::ColorTargetState {
-					format: config.format,
-					blend: Some(wgpu::BlendState::REPLACE),
-					write_mask: wgpu::ColorWrites::ALL,
-				})],
-			}),
-			primitive: wgpu::PrimitiveState {
-				topology: wgpu::PrimitiveTopology::TriangleList,
-				strip_index_format: None,
-				front_face: wgpu::FrontFace::Ccw,
-				cull_mode: None,
-				polygon_mode: wgpu::PolygonMode::Fill,
-				unclipped_depth: false,
-				conservative: false,
-			},
-			depth_stencil: None,
-			multisample: wgpu::MultisampleState {
-				count: 1,
-				mask: !0,
-				alpha_to_coverage_enabled: false,
-			},
-			multiview: None,
+		let pipeline = Pipeline::new(PipelineDescriptor {
+			device: &rendering_core.device,
+			name: "Rendering",
+			shaders: vec![vert,frag],
+			uniform_defaults: temp_val,
+			vert_buffer: vertex_buffer,
+			vert_num: square_ind.len(),
+			ind_buffer: index_buffer,
+			bindings: vec![screen_texture_bind_group],
+			bindings_layout: vec![texture_bind_group_layout],
+			format: rendering_core.surface_format
 		});
 
 		(
 			Self {
-				window,
-				surface,
-				device,
-				queue,
-				config,
-				size: win_size,
-				render_pipeline,
-				vertex_buffer,
-				index_buffer,
+				rendering_core,
+				pipeline: pipeline.unwrap(),
+
 				screen_texture,
 				screen_texture_size: texture_size,
 				screen_texture_view,
-				screen_texture_bind_group,
-				uniform_buffer,
-				uniform_bind_group,
 
 				camera_zoom: 1.0,
 				camera_pan: Vector2::from([0.0, 0.0]),
@@ -425,17 +263,8 @@ impl GLRenderer {
 		}
 		self.frame_start = Instant::now();
 
-		// WGPU stuff
-		let output = self.surface.get_current_texture()?;
-		let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-		let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: Some("Render Encoder"),
-		});
-
-
 		// Adjust size
-		let (ww, wh) = (self.size.width, self.size.height);
+		let (ww, wh) = (self.rendering_core.window_size.width, self.rendering_core.window_size.height);
 		let mut window_size = Vector2::new(ww as f32 / WINW as f32, wh as f32 / WINH as f32);
 		window_size = window_size / minnumf32(window_size.x, window_size.y) as f32;
 
@@ -456,7 +285,7 @@ impl GLRenderer {
 			grid: 0, //gui.grid_size as i32
 			padding: 0f64,
 		};
-		self.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
+		self.rendering_core.queue.write_buffer(&self.pipeline.uniform_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
 
 		// Generate texture
 		let mut tex_data = TextureData::new(XRES, YRES);
@@ -475,7 +304,7 @@ impl GLRenderer {
 
 		//self.draw_cursor(&mut tex_data, &gui);
 
-		self.queue.write_texture(
+		self.rendering_core.queue.write_texture(
 			ImageCopyTexture{
 				texture: &self.screen_texture,
 				aspect: TextureAspect::All,
@@ -491,48 +320,31 @@ impl GLRenderer {
 			self.screen_texture_size
 		);
 
-		{
-			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-				label: Some("Render Pass"),
-				color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-					view: &view,
-					resolve_target: None,
-					ops: wgpu::Operations {
-						load: wgpu::LoadOp::Clear(wgpu::Color {
-							r: 0.0,
-							g: 0.0,
-							b: 0.0,
-							a: 1.0, // if window is transparent remember to make this 0
-						}),
-						store: true,
-					},
-				})],
-				depth_stencil_attachment: None,
-			});
+		// WGPU stuff
+		let mut encoder = self.rendering_core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+			label: Some("Render Encoder"),
+		});
 
-			render_pass.set_pipeline(&self.render_pipeline);
-			render_pass.set_bind_group(0, &self.screen_texture_bind_group, &[]);
-			render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-			render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-			render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-			render_pass.draw_indexed(0..6, 0, 0..1);
+		let view = self.pipeline.create_window_view(&self.rendering_core)?;
+		let mut render_pass = self.pipeline.begin_render_pass(&view, &mut encoder)?;
 
-			// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
-			// gui.immediate_gui.draw_queued(&self.display, &mut frame);
-		}
+		self.pipeline.draw(&mut render_pass);
 
-		self.queue.submit(std::iter::once(encoder.finish()));
-		output.present();
+		// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
+		// gui.immediate_gui.draw_queued(&self.display, &mut frame);
+
+		drop(render_pass);
+		self.pipeline.submit_frame(&mut self.rendering_core, encoder);
 
 		Ok(())
 	}
 
 	pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
 		if new_size.width > 0 && new_size.height > 0 {
-			self.size = new_size;
-			self.config.width = new_size.width;
-			self.config.height = new_size.height;
-			self.surface.configure(&self.device, &self.config);
+			self.rendering_core.window_size = new_size;
+			self.rendering_core.config.width = new_size.width;
+			self.rendering_core.config.height = new_size.height;
+			self.rendering_core.surface.configure(&self.rendering_core.device, &self.rendering_core.config);
 		}
 	}
 

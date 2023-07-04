@@ -46,7 +46,7 @@ pub fn handle_events(
 ) {
 	event_loop.run(move |event, _, flow| {
 		match event {
-			Event::WindowEvent { event: ev, window_id, .. } if ren.window.id() == window_id => {
+			Event::WindowEvent { event: ev, window_id, .. } if ren.rendering_core.window.id() == window_id => {
 				match ev {
 					WindowEvent::CloseRequested => {
 						flow.set_exit();
@@ -99,11 +99,11 @@ pub fn handle_events(
 					_ => {}
 				}
 			}
-			Event::RedrawRequested(window_id) if window_id == ren.window.id() => {
+			Event::RedrawRequested(window_id) if window_id == ren.rendering_core.window.id() => {
 				match ren.render(&sim/*, &mut gui*/) { //todo uncomment
 					Ok(_) => {}
 					// Reconfigure the surface if lost
-					Err(wgpu::SurfaceError::Lost) => ren.resize(ren.size),
+					Err(wgpu::SurfaceError::Lost) => ren.resize(ren.rendering_core.window_size),
 					// The system is out of memory, we should probably quit
 					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
 					// All other errors (Outdated, Timeout) should be resolved by the next frame

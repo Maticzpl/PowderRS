@@ -2,4 +2,4 @@
 // That is because I hate how much boilerplate you have to write for simple stuff :P
 pub mod pipeline;
 pub mod vertex_type;
-mod core;
+pub mod core;
