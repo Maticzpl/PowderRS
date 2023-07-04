@@ -1,11 +1,21 @@
-use cgmath::{Matrix4, Vector2, Vector3};
-use wgpu::Color;
-use wgpu_glyph::{BuiltInLineBreaker, FontId, GlyphBrush, GlyphCruncher, HorizontalAlign, Layout, Section, Text, VerticalAlign};
+use std::intrinsics::size_of;
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
+use wgpu::{BufferAddress, Color, CommandEncoder, Device, include_wgsl, RenderPass, TextureFormat, TextureView};
+use wgpu::util::{DeviceExt, StagingBelt};
+use wgpu_glyph::{BuiltInLineBreaker, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, Text, VerticalAlign};
 use wgpu_glyph::ab_glyph::FontRef;
 
-
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
+use crate::rendering::wgpu::core::Core;
+use crate::rendering::wgpu::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
+use crate::rendering::wgpu::vertex_type::VertexType;
 use crate::sim::{WINH, WINW};
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct GUIUniforms {
+	transform: [[f32; 4]; 4]
+}
 
 #[derive(Copy, Clone)]
 pub enum Bounds {
@@ -18,66 +28,75 @@ pub enum Bounds {
 }
 
 pub struct ImmediateGUI<'a> {
-	font: GlyphBrush<FontRef<'a>>,
-	// ind_buffer: IndexBuffer<u32>, TODO uhh replace
-	// vert_buffer: VertexBuffer<GUIVert>,
-	// program: Program,
+	font: GlyphBrush<(), FontRef<'a>>,
 	rect_num: u32,
+	pipeline: Pipeline,
+	pub belt: StagingBelt,
 	pub window_scale_ratio: Vector2<f32>,
 }
 
 impl ImmediateGUI<'_> {
-	// TODO rewrite
-	// pub(crate) fn new(display: &Display) -> Self {
-	// 	let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Regular.ttf");
-	// 	let font = FontRef::try_from_slice(ttf).unwrap();
-	//
-	// 	let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Bold.ttf");
-	// 	let bold = FontRef::try_from_slice(ttf).unwrap();
-	//
-	// 	let mut glyph_brush = GlyphBrushBuilder::using_font(font).build(display);
-	// 	let _bold_id = glyph_brush.add_font(bold);
-	//
-	// 	let cap = 1024usize;
-	// 	let ind_buffer: IndexBuffer<u32> = IndexBuffer::empty(
-	// 		display,
-	// 		PrimitiveType::TrianglesList,
-	// 		(cap as f32 * (6.0 / 4.0)) as usize,
-	// 	)
-	// 	.expect("Can't create GUI index buffer");
-	//
-	// 	let vert_buffer: VertexBuffer<GUIVert> =
-	// 		VertexBuffer::empty(display, cap).expect("Can't create GUI vert buffer");
-	//
-	// 	let program = match Program::new(
-	// 		display,
-	// 		ProgramCreationInput::SourceCode {
-	// 			vertex_shader:   include_str!("../../shaders/gui.vert"),
-	// 			fragment_shader: include_str!("../../shaders/gui.frag"),
-	//
-	// 			tessellation_control_shader: None,
-	// 			tessellation_evaluation_shader: None,
-	// 			geometry_shader: None,
-	// 			transform_feedback_varyings: None,
-	// 			outputs_srgb: false,
-	// 			uses_point_size: false,
-	// 		},
-	// 	) {
-	// 		Ok(res) => res,
-	// 		Err(e) => {
-	// 			panic!("{}", e.to_string().replace("\\n", "\n"));
-	// 		}
-	// 	};
-	//
-	// 	return Self {
-	// 		// program,
-	// 		font: glyph_brush,
-	// 		// ind_buffer, TODO: this things
-	// 		// vert_buffer,
-	// 		rect_num: 0,
-	// 		window_scale_ratio: Vector2::new(1.0, 1.0),
-	// 	};
-	// }
+	pub(crate) fn new(rendering_core: &Core) -> Self {
+		// Font
+		let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Regular.ttf");
+		let font = FontRef::try_from_slice(ttf).unwrap();
+
+		let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Bold.ttf");
+		let bold = FontRef::try_from_slice(ttf).unwrap();
+
+		let mut glyph_brush = GlyphBrushBuilder::using_font(font).build(&rendering_core.device, rendering_core.surface_format);
+		let _bold_id = glyph_brush.add_font(bold);
+
+		// Shapes
+		let vertex_buffer = rendering_core.device.create_buffer_init(
+			&wgpu::util::BufferInitDescriptor {
+				label: Some("GUI Vertex Buffer"),
+				contents: &[],
+				usage: wgpu::BufferUsages::VERTEX,
+			}
+		);
+		let index_buffer = rendering_core.device.create_buffer_init(
+			&wgpu::util::BufferInitDescriptor {
+				label: Some("GUI Index Buffer"),
+				contents: &[],
+				usage: wgpu::BufferUsages::INDEX,
+			}
+		);
+
+		let shaders = rendering_core.device.create_shader_module(include_wgsl!("../../shaders/gui.wgsl"));
+		let vertex_desc = &[GUIVert::description()];
+		let vert = Shader {
+			module: &shaders,
+			entry: "vs_main",
+			shader_type: ShaderType::Vertex(vertex_desc)
+		};
+		let frag = Shader {
+			module: &shaders,
+			entry: "fs_main",
+			shader_type: ShaderType::Fragment
+		};
+
+		let gui_pipeline = Pipeline::new(PipelineDescriptor {
+			device: &rendering_core.device,
+			name: "GUI",
+			shaders: vec![vert, frag],
+			uniform_defaults: GUIUniforms { transform: Matrix4::identity().into() },
+			vert_buffer: vertex_buffer,
+			vert_num: 0,
+			ind_buffer: index_buffer,
+			bindings: vec![],
+			bindings_layout: vec![],
+			format: rendering_core.surface_format,
+		}).unwrap();
+
+		Self {
+			font: glyph_brush,
+			rect_num: 0,
+			window_scale_ratio: Vector2::new(1.0, 1.0),
+			pipeline: gui_pipeline,
+			belt: StagingBelt::new(1024)
+		}
+	}
 
 	pub fn queue_text(
 		&mut self,
@@ -139,66 +158,79 @@ impl ImmediateGUI<'_> {
 			.queue(section.with_bounds(size).with_layout(layout));
 	}
 
-	pub fn queue_rect(&mut self, pos: Vector2<f32>, size: Vector2<f32>, color: Color) {
+	pub fn queue_rect(&mut self, rendering_core: &Core, pos: Vector2<f32>, size: Vector2<f32>, color: Color) {
 		let w_only = Vector2::from([size.x, 0.0]);
 		let h_only = Vector2::from([0.0, size.y]);
 
 		let vert_off = self.rect_num as usize * 4;
-		// TODO This stuff
-		// self.vert_buffer.map()[vert_off + 0] = GUIVert {
-		// 	pos:   pos.into(),
-		// 	color: [color.r, color.g, color.b, color.a] as [f32;4],
-		// };
-		// self.vert_buffer.map()[vert_off + 1] = GUIVert {
-		// 	pos:   (pos + w_only).into(),
-		// 	color: [color.r, color.g, color.b, color.a] as [f32;4],
-		// };
-		// self.vert_buffer.map()[vert_off + 2] = GUIVert {
-		// 	pos:   (pos + size).into(),
-		// 	color: [color.r, color.g, color.b, color.a] as [f32;4],
-		// };
-		// self.vert_buffer.map()[vert_off + 3] = GUIVert {
-		// 	pos:   (pos + h_only).into(),
-		// 	color: [color.r, color.g, color.b, color.a] as [f32;4],
-		// };
-		//
-		// let off = self.rect_num as usize * 6;
-		// self.ind_buffer.map()[off + 0] = (vert_off) as u32;
-		// self.ind_buffer.map()[off + 1] = (vert_off + 1) as u32;
-		// self.ind_buffer.map()[off + 2] = (vert_off + 2) as u32;
-		// self.ind_buffer.map()[off + 3] = (vert_off) as u32;
-		// self.ind_buffer.map()[off + 4] = (vert_off + 2) as u32;
-		// self.ind_buffer.map()[off + 5] = (vert_off + 3) as u32;
+
+		rendering_core.queue.write_buffer(
+			&self.pipeline.vert_buffer,
+			(vert_off * size_of::<GUIVert>()) as BufferAddress,
+			bytemuck::cast_slice(&[
+				GUIVert {
+					pos:   pos.into(),
+					color: [color.r as f32, color.g  as f32, color.b  as f32, color.a  as f32],
+				},
+				GUIVert {
+					pos:   (pos + w_only).into(),
+					color: [color.r as f32, color.g  as f32, color.b  as f32, color.a  as f32],
+				},
+				GUIVert {
+					pos:   (pos + size).into(),
+					color: [color.r as f32, color.g  as f32, color.b  as f32, color.a  as f32],
+				},
+				GUIVert {
+					pos:   (pos + h_only).into(),
+					color: [color.r as f32, color.g  as f32, color.b  as f32, color.a  as f32],
+				}
+			])
+		);
+
+		let off = self.rect_num as usize * 6;
+		rendering_core.queue.write_buffer(
+			&self.pipeline.ind_buffer,
+			(off * size_of::<u32>()) as BufferAddress,
+			bytemuck::cast_slice(&[
+				vert_off as u32,
+				(vert_off + 1) as u32,
+				(vert_off + 2) as u32,
+				vert_off as u32,
+				(vert_off + 2) as u32,
+				(vert_off + 3) as u32
+			])
+		);
 
 		self.rect_num += 1;
 	}
 
-	// TODO : rewrite
-	// pub fn draw_queued(&mut self, display: &Display, frame: &mut impl Surface) {
-	// 	let (w, h) = display.get_framebuffer_dimensions();
-	// 	self.window_scale_ratio = Vector2::from([w as f32 / WINW as f32, h as f32 / WINH as f32]);
-	//
-	// 	// Shapes transform
-	// 	let uniforms = uniform! {
-	// 		transform: <Matrix4<f32> as Into<[[f32;4];4]>>::into(
-	// 			Matrix4::from_nonuniform_scale(2.0/WINW as f32 , -2.0/WINH as f32, 1.0) *
-	// 			Matrix4::from_translation(Vector3::from([-(WINW as f32/2.0), -(WINH as f32/2.0), 0.0]))
-	// 		)
-	// 	};
-	//
-	// 	frame
-	// 		.draw(
-	// 			&self.vert_buffer,
-	// 			&self.ind_buffer,
-	// 			&self.program,
-	// 			&uniforms,
-	// 			&DrawParameters::default(),
-	// 		)
-	// 		.expect("GUI Draw error");
-	//
-	// 	self.font.draw_queued(display, frame);
-	// 	self.rect_num = 0;
-	// }
+	pub fn draw_queued<'a>(&'a mut self, rendering_core: &mut Core, mut render_pass: RenderPass<'a>) {
+		let (w, h) = (rendering_core.window_size.width, rendering_core.window_size.height);
+		self.window_scale_ratio = Vector2::from([w as f32 / WINW as f32, h as f32 / WINH as f32]);
+
+		self.pipeline.vert_num = (self.rect_num * 6) as usize;
+
+		// Shapes transform
+		let transform = <Matrix4<f32> as Into<[[f32;4];4]>>::into(
+				Matrix4::from_nonuniform_scale(2.0/WINW as f32 , -2.0/WINH as f32, 1.0) *
+				Matrix4::from_translation(Vector3::from([-(WINW as f32/2.0), -(WINH as f32/2.0), 0.0]))
+			);
+		let uniforms = GUIUniforms {
+			transform
+		};
+
+		rendering_core.queue.write_buffer(&self.pipeline.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+		self.pipeline.draw(&mut render_pass);
+	}
+
+	pub fn finish_drawing<'a>(&mut self, rendering_core: &mut Core, view: &TextureView, encoder: &mut CommandEncoder) {
+		let (w, h) = (rendering_core.window_size.width, rendering_core.window_size.height);
+		self.font.draw_queued(&rendering_core.device, &mut self.belt, encoder, &view, w, h).unwrap();
+
+		self.belt.finish();
+		self.rect_num = 0;
+	}
 
 	pub fn measure_text(&mut self, text: &str, font_size: f32) -> Vector2<f32> {
 		let size = self

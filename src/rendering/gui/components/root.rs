@@ -4,20 +4,20 @@ use std::rc::{Rc, Weak};
 use cgmath::{Vector2, Zero};
 
 use crate::rendering::gui::components::{Component, ComponentAlignment};
-use crate::rendering::gui::game_gui::Display;
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
+use crate::rendering::wgpu::core::Core;
 
 pub struct Root {
-	display: Rc<Display>,
+	rendering_core: Rc<RefCell<Core>>,
 
 	children: Vec<Rc<RefCell<dyn Component>>>,
 }
 
 impl Root {
-	pub(crate) fn new(display: Rc<Display>) -> Self {
+	pub(crate) fn new(display: Rc<RefCell<Core>>) -> Self {
 		Self {
 			children: vec![],
-			display,
+			rendering_core: display,
 		}
 	}
 }

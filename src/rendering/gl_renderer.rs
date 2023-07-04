@@ -1,18 +1,15 @@
-use std::cmp::max;
+use std::cell::RefCell;
 use std::intrinsics::{floorf32, maxnumf32, minnumf32, size_of};
 use std::rc::Rc;
 
-use cgmath::{InnerSpace, Matrix4, SquareMatrix, Vector2, Vector3};
-use cgmath::num_traits::abs;
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use instant::Instant;
-use wgpu::{BindGroup, BlendState, Buffer, ColorTargetState, Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, PresentMode, Sampler, TextureAspect, TextureFormat, TextureView, VertexBufferLayout};
+use wgpu::{Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, TextureAspect, TextureView};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
-use winit::window::{Window, WindowBuilder};
 
 use crate::rendering::gui::game_gui::GameGUI;
-use crate::rendering::gui::immediate_mode::gui_renderer::Bounds;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
 use crate::rendering::wgpu::core::Core;
@@ -38,7 +35,7 @@ struct Uniforms {
 }
 
 pub struct GLRenderer {
-	pub rendering_core: Core,
+	pub rendering_core: Rc<RefCell<Core>>,
 	pub pipeline: Pipeline,
 
 	screen_texture: wgpu::Texture,
@@ -70,19 +67,19 @@ impl GLRenderer {
 
 		let square: &[Vert] = &[
 			Vert {
-				pos:        [-w as f32, h as f32],
+				pos:        [-w, h],
 				tex_coords: [0f32, 1f32],
 			},
 			Vert {
-				pos:        [w as f32, h as f32],
+				pos:        [w, h],
 				tex_coords: [1f32, 1f32],
 			},
 			Vert {
-				pos:        [w as f32, -h as f32],
+				pos:        [w, -h],
 				tex_coords: [1f32, 0f32],
 			},
 			Vert {
-				pos:        [-w as f32, -h as f32],
+				pos:        [-w, -h],
 				tex_coords: [0f32, 0f32],
 			},
 		];
@@ -223,7 +220,7 @@ impl GLRenderer {
 
 		(
 			Self {
-				rendering_core,
+				rendering_core: Rc::new(RefCell::new(rendering_core)),
 				pipeline: pipeline.unwrap(),
 
 				screen_texture,
@@ -246,14 +243,14 @@ impl GLRenderer {
 			event_loop,
 		)
 	}
-	pub fn render(&mut self, sim: &Simulation/*, gui: &mut GameGUI*/) -> Result<(), wgpu::SurfaceError> { // todo uncomment
+	pub fn render(&mut self, sim: &Simulation, gui: &mut GameGUI) -> Result<(), wgpu::SurfaceError> {
 		// FPS counter
 		let dt = self.frame_start.elapsed().as_micros();
 
 		self.fps_sum += 1000000f64 / dt as f64;
 		self.samples += 1;
 
-		//gui.fps_displ.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32; //todo uncomment
+		gui.fps_displ.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32;
 
 		if self.timers[0].elapsed().as_millis() >= 1000 {
 			self.perf_sum = [0; 3];
@@ -263,8 +260,10 @@ impl GLRenderer {
 		}
 		self.frame_start = Instant::now();
 
+		let core = self.rendering_core.borrow();
+
 		// Adjust size
-		let (ww, wh) = (self.rendering_core.window_size.width, self.rendering_core.window_size.height);
+		let (ww, wh) = (core.window_size.width, core.window_size.height);
 		let mut window_size = Vector2::new(ww as f32 / WINW as f32, wh as f32 / WINH as f32);
 		window_size = window_size / minnumf32(window_size.x, window_size.y) as f32;
 
@@ -279,13 +278,13 @@ impl GLRenderer {
 			});
 
 		self.view_matrix = view_matrix;
-		let camera_matrix = Uniforms {
+		let unifs = Uniforms {
 			mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix * self.view_matrix * self.model_matrix).into(),
 			z: 0.0,
 			grid: 0, //gui.grid_size as i32
 			padding: 0f64,
 		};
-		self.rendering_core.queue.write_buffer(&self.pipeline.uniform_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
+		core.queue.write_buffer(&self.pipeline.uniform_buffer, 0, bytemuck::cast_slice(&[unifs]));
 
 		// Generate texture
 		let mut tex_data = TextureData::new(XRES, YRES);
@@ -302,9 +301,9 @@ impl GLRenderer {
 			}
 		}
 
-		//self.draw_cursor(&mut tex_data, &gui);
+		self.draw_cursor(&mut tex_data, &gui);
 
-		self.rendering_core.queue.write_texture(
+		core.queue.write_texture(
 			ImageCopyTexture{
 				texture: &self.screen_texture,
 				aspect: TextureAspect::All,
@@ -320,31 +319,36 @@ impl GLRenderer {
 			self.screen_texture_size
 		);
 
-		// WGPU stuff
-		let mut encoder = self.rendering_core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+
+		// WGPU stuff This is a bit mesy, well thats the price you pay not using unsafe rust :P
+		let mut encoder = core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
 			label: Some("Render Encoder"),
 		});
 
-		let view = self.pipeline.create_window_view(&self.rendering_core)?;
+		let view = self.pipeline.create_window_view(&core)?;
 		let mut render_pass = self.pipeline.begin_render_pass(&view, &mut encoder)?;
 
 		self.pipeline.draw(&mut render_pass);
 
-		// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
-		// gui.immediate_gui.draw_queued(&self.display, &mut frame);
+		drop(core);
+		gui.gui_root.borrow().draw(&mut gui.immediate_gui);
+		gui.immediate_gui.draw_queued(&mut self.rendering_core.borrow_mut(), render_pass);
+		gui.immediate_gui.finish_drawing(&mut self.rendering_core.borrow_mut(), &view, &mut encoder);
 
-		drop(render_pass);
-		self.pipeline.submit_frame(&mut self.rendering_core, encoder);
+		self.pipeline.submit_frame(&mut self.rendering_core.borrow_mut(), encoder);
+		gui.immediate_gui.belt.recall();
 
 		Ok(())
 	}
 
 	pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+		let mut core = self.rendering_core.borrow_mut();
+
 		if new_size.width > 0 && new_size.height > 0 {
-			self.rendering_core.window_size = new_size;
-			self.rendering_core.config.width = new_size.width;
-			self.rendering_core.config.height = new_size.height;
-			self.rendering_core.surface.configure(&self.rendering_core.device, &self.rendering_core.config);
+			core.window_size = new_size;
+			core.config.width = new_size.width;
+			core.config.height = new_size.height;
+			core.surface.configure(&core.device, &core.config);
 		}
 	}
 
@@ -359,7 +363,6 @@ impl GLRenderer {
 		col
 	}
 
-	// TODO: Move to gui?
 	fn draw_cursor(&self, tex_data: &mut TextureData, gui: &GameGUI) {
 		let width = (gui.cursor.max.x - gui.cursor.min.x) as usize;
 		let height = (gui.cursor.max.y - gui.cursor.min.y) as usize;

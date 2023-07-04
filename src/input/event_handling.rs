@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event::ElementState::Pressed;
@@ -10,6 +12,7 @@ use crate::rendering::gl_renderer::GLRenderer;
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::sim::Simulation;
 use crate::{tick, TickFnState};
+use crate::rendering::wgpu::core::Core;
 
 pub struct InputData {
 	pub mouse_buttons:      HashMap<MouseButton, bool>,
@@ -41,12 +44,18 @@ pub fn handle_events(
 	mut input: InputData,
 	mut sim: Simulation,
 	mut ren: GLRenderer,
-	//mut gui: GameGUI<'static>, todo uncomment
+	mut gui: GameGUI<'static>,
 	mut tick_state: TickFnState,
+	rendering_core: Rc<RefCell<Core>>,
 ) {
 	event_loop.run(move |event, _, flow| {
+		let core = rendering_core.borrow();
+		let win_id = core.window.id();
+		let size = core.window_size;
+		drop(core);
+
 		match event {
-			Event::WindowEvent { event: ev, window_id, .. } if ren.rendering_core.window.id() == window_id => {
+			Event::WindowEvent { event: ev, window_id, .. } if win_id == window_id => {
 				match ev {
 					WindowEvent::CloseRequested => {
 						flow.set_exit();
@@ -99,19 +108,18 @@ pub fn handle_events(
 					_ => {}
 				}
 			}
-			Event::RedrawRequested(window_id) if window_id == ren.rendering_core.window.id() => {
-				match ren.render(&sim/*, &mut gui*/) { //todo uncomment
+			Event::RedrawRequested(window_id) if window_id == win_id => {
+				match ren.render(&sim, &mut gui) {
 					Ok(_) => {}
-					// Reconfigure the surface if lost
-					Err(wgpu::SurfaceError::Lost) => ren.resize(ren.rendering_core.window_size),
-					// The system is out of memory, we should probably quit
+					Err(wgpu::SurfaceError::Lost) => {
+						ren.resize(size)
+					},
 					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
-					// All other errors (Outdated, Timeout) should be resolved by the next frame
 					Err(e) => eprintln!("{:?}", e),
 				}
 			}
 			Event::MainEventsCleared => {
-				tick(&mut sim, &mut ren/*, &mut gui*/, &mut input, &mut tick_state); // todo uncomment
+				tick(&mut sim, &mut ren, &mut gui, &mut input, &mut tick_state);
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
 			}

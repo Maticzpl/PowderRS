@@ -81,18 +81,25 @@ impl Core {
             None,
         ).await.unwrap();
 
-
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps.formats.iter()
             .copied()
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
+
+        let mut present_mode = PresentMode::Immediate;
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            present_mode = PresentMode::Fifo; // Bad performance ):
+        }
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format, // TODO: USE THIS EVERYWHERE ELSE
+            format: surface_format,
             width: window_size.width,
             height: window_size.height,
-            present_mode: PresentMode::Fifo,
+            present_mode,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };

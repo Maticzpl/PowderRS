@@ -34,11 +34,11 @@ use wasm_bindgen::prelude::*;
 fn tick(
 	sim: &mut Simulation,
 	ren: &mut GLRenderer,
-	// gui: &mut GameGUI, todo uncomment
+	gui: &mut GameGUI,
 	input: &mut InputData,
 	tick_state: &mut TickFnState,
 ) {
-	handle_input(sim, ren, /*gui,*/ input, tick_state); //todo uncomment
+	handle_input(sim, ren, gui, input, tick_state);
 
 	let dt = tick_state.time_since_tick.elapsed().as_micros();
 	let tps = 1000000 as f64 / dt as f64;
@@ -48,8 +48,9 @@ fn tick(
 
 	// draw cap
 	if tick_state.time_since_render.elapsed().as_micros() > (1000000 / 80) {
-		//gui.fps_displ.borrow_mut().tps = tps as f32; //todo uncomment
-		ren.rendering_core.window.request_redraw();
+		gui.fps_displ.borrow_mut().tps = tps as f32;
+		ren.rendering_core.borrow().window.request_redraw();
+
 		tick_state.time_since_render = Instant::now();
 	}
 }
@@ -70,7 +71,7 @@ pub async fn run() {
 	let ren = GLRenderer::new().await;
 	let event_loop = ren.1;
 	let ren = ren.0;
-	//let gui = GameGUI::new(/*Rc::clone(&ren.display)*/); // TODO: this
+	let gui = GameGUI::new(Rc::clone(&ren.rendering_core));
 
 	let tick_state = TickFnState {
 		// TODO: Ton of things here should be elsewhere
@@ -151,5 +152,6 @@ pub async fn run() {
 		y:      (WINH / 2) as u32,
 	});
 
-	handle_events(event_loop, input, sim, ren, /*gui,*/ tick_state); // todo uncomment
+	let rendering_core = ren.rendering_core.clone();
+	handle_events(event_loop, input, sim, ren, gui, tick_state, rendering_core);
 }
