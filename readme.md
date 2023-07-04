@@ -18,3 +18,6 @@ If you want to play without having to compile it yourself, check the actions tab
 **Ctrl + Scroll** - Zoom  
 **MMB + Move Mouse** - Move the camera  
 **G + Scroll** - Change grid size  
+## Web Version
+The version up on https://maticzpl.xyz/powderrs/ is still in development.
+Currently it limits TPS and doens't capture scroll wheel inputs.
