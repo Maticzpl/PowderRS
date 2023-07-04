@@ -3,6 +3,7 @@ use std::intrinsics::{floorf32, maxnumf32, minnumf32, size_of};
 use std::rc::Rc;
 
 use cgmath::{InnerSpace, Matrix4, SquareMatrix, Vector2, Vector3};
+use cgmath::num_traits::abs;
 use instant::Instant;
 use wgpu::{BindGroup, Buffer, Extent3d, ImageCopyTexture, ImageDataLayout, include_wgsl, Origin3d, PresentMode, Sampler, TextureAspect, TextureView, VertexBufferLayout};
 use wgpu::util::DeviceExt;
@@ -12,7 +13,10 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::gui::immediate_mode::gui_renderer::Bounds;
+use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
+use crate::rendering::wgpu::pipeline::{Pipeline, Shader, ShaderType};
+use crate::rendering::wgpu::vertex_type::VertexType;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -24,8 +28,12 @@ pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct PVMUniform {
-	mat: [[f32; 4]; 4]
+struct Uniforms {
+	mat: [[f32; 4]; 4],
+	z: f32,
+	grid: u32,
+	padding: f64, // Dummy variable for padding
+	//Buffer is bound with size 72 where the shader expects 80 in group[1] compact index 0
 }
 
 pub struct GLRenderer {
@@ -42,8 +50,8 @@ pub struct GLRenderer {
 	screen_texture_size: Extent3d,
 	screen_texture_view: TextureView,
 	screen_texture_bind_group: BindGroup,
-	pvm_bind_group: BindGroup,
-	pvm_buffer: Buffer,
+	uniform_bind_group: BindGroup,
+	uniform_buffer: Buffer,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -64,13 +72,13 @@ impl GLRenderer {
 		let win_size = PhysicalSize::new(WINW as u32, WINH as u32);
 
 		cfg_if::cfg_if! {
-		if #[cfg(target_arch = "wasm32")] {
-			std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-			console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
-		} else {
-			env_logger::init();
+			if #[cfg(target_arch = "wasm32")] {
+				std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+				console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
+			} else {
+				env_logger::init();
+			}
 		}
-	}
 
 		let event_loop = EventLoop::new();
 		let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -178,7 +186,6 @@ impl GLRenderer {
 
 		let shader = device.create_shader_module(include_wgsl!("./shaders/main.wgsl"));
 
-
 		let texture_size = wgpu::Extent3d {
 			width: WINW as u32,
 			height: WINH as u32,
@@ -261,19 +268,22 @@ impl GLRenderer {
 			1.0,
 		);
 
-		let temp_val = PVMUniform {
-			mat: (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into()
+		let temp_val = Uniforms {
+			mat: (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into(),
+			z: 0.0,
+			grid: 0,
+			padding: 0f64,
 		};
 
-		let pvm_buffer = device.create_buffer_init(
+		let uniform_buffer = device.create_buffer_init(
 			&wgpu::util::BufferInitDescriptor {
-				label: Some("Camera Buffer"),
+				label: Some("Uniform Buffer"),
 				contents: bytemuck::cast_slice(&[temp_val]),
 				usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 			}
 		);
 
-		let pvm_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+		let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 			entries: &[
 				wgpu::BindGroupLayoutEntry {
 					binding: 0,
@@ -286,24 +296,44 @@ impl GLRenderer {
 					count: None,
 				}
 			],
-			label: Some("pvm_bind_group_layout"),
+			label: Some("uniform_bind_group_layout"),
 		});
 
-		let pvm_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-			layout: &pvm_bind_group_layout,
+		let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+			layout: &uniform_bind_group_layout,
 			entries: &[
 				wgpu::BindGroupEntry {
 					binding: 0,
-					resource: pvm_buffer.as_entire_binding(),
+					resource: uniform_buffer.as_entire_binding(),
 				}
 			],
-			label: Some("pvm_bind_group"),
+			label: Some("uniform_bind_group"),
 		});
+
+		// Own abstraction test TODO: review -------------------------------------------------------
+		let vertex_desc = &[Vert::description()];
+		let vert = Shader {
+			module: &shader,
+			entry: "vs_main",
+			shader_type: ShaderType::Vertex(vertex_desc)
+		};
+		let frag = Shader {
+			module: &shader,
+			entry: "fs_main",
+			shader_type: ShaderType::Fragment
+		};
+
+		let test_pipeline = Pipeline::new(
+			&device, "Rendering",
+			vec![vert, frag], config.format,
+			Uniforms {mat: Matrix4::identity().into(), grid: 0, z: 0.0, padding: 0.0}
+		);
+		// Own abstraction end TODO: review --------------------------------------------------------
 
 		let render_pipeline_layout =
 			device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 				label: Some("Render Pipeline Layout"),
-				bind_group_layouts: &[&texture_bind_group_layout, &pvm_bind_group_layout],
+				bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
 				push_constant_ranges: &[],
 			});
 
@@ -314,7 +344,7 @@ impl GLRenderer {
 				module: &shader,
 				entry_point: "vs_main",
 				buffers: &[
-					Vert::desc()
+					Vert::description()
 				],
 			},
 			fragment: Some(wgpu::FragmentState {
@@ -359,8 +389,8 @@ impl GLRenderer {
 				screen_texture_size: texture_size,
 				screen_texture_view,
 				screen_texture_bind_group,
-				pvm_buffer,
-				pvm_bind_group,
+				uniform_buffer,
+				uniform_bind_group,
 
 				camera_zoom: 1.0,
 				camera_pan: Vector2::from([0.0, 0.0]),
@@ -420,11 +450,16 @@ impl GLRenderer {
 			});
 
 		self.view_matrix = view_matrix;
-		let camera_matrix = PVMUniform { mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix * self.view_matrix * self.model_matrix).into() };
-		self.queue.write_buffer(&self.pvm_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
+		let camera_matrix = Uniforms {
+			mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix * self.view_matrix * self.model_matrix).into(),
+			z: 0.0,
+			grid: 0, //gui.grid_size as i32
+			padding: 0f64,
+		};
+		self.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[camera_matrix]));
 
 		// Generate texture
-		let mut tex_data = vec![0u8; 4 * XRES * YRES];
+		let mut tex_data = TextureData::new(XRES, YRES);
 		let mut counter = 0;
 		for i in 0..sim.parts.len() {
 			if counter >= sim.get_part_count() {
@@ -433,14 +468,12 @@ impl GLRenderer {
 			let pt = sim.get_part(i);
 			if pt.p_type != 0 {
 				let col = pt.get_type().col;
-				let pos = (pt.x as usize + (pt.y as usize * WINW)) * 4;
-				tex_data[pos + 0] = col[0];
-				tex_data[pos + 1] = col[1];
-				tex_data[pos + 2] = col[2];
-				tex_data[pos + 3] = pt.p_type as u8;
+				tex_data.set_pixel(pt.x as usize, pt.y as usize, (col[0], col[1], col[2], pt.p_type as u8));
 				counter += 1;
 			}
 		}
+
+		//self.draw_cursor(&mut tex_data, &gui);
 
 		self.queue.write_texture(
 			ImageCopyTexture{
@@ -457,41 +490,6 @@ impl GLRenderer {
 			},
 			self.screen_texture_size
 		);
-
-		// self.draw_cursor(&mut tex_data, &gui);
-		// self.texture.write(
-		// 	Rect {
-		// 		width:  XRES as u32,
-		// 		height: YRES as u32,
-		// 		bottom: 0,
-		// 		left:   0,
-		// 	},
-		// 	tex_data,
-		// );
-		//
-		// let uniforms = uniform! {
-		// 	tex: glium::uniforms::Sampler(&self.texture, self.tex_filter),
-		// 	pvm: <Matrix4<f32> as Into<[[f32;4];4]>>::into(camera_matrix),
-		// 	grid: gui.grid_size as i32,
-		// 	z: 0f32,
-		// };
-		//
-		// let mut frame = self.display.draw();
-		// frame.clear_color(1.0 / 255.0, 0.0, 0.0, 0.0);
-		//
-		// frame
-		// 	.draw(
-		// 		&self.vert_buffer,
-		// 		&self.ind_buffer,
-		// 		&self.program,
-		// 		&uniforms,
-		// 		&self.draw_params,
-		// 	)
-		// 	.expect("Draw error");
-		//
-		// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
-		// gui.immediate_gui.draw_queued(&self.display, &mut frame);
-
 
 		{
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -514,13 +512,15 @@ impl GLRenderer {
 
 			render_pass.set_pipeline(&self.render_pipeline);
 			render_pass.set_bind_group(0, &self.screen_texture_bind_group, &[]);
-			render_pass.set_bind_group(1, &self.pvm_bind_group, &[]);
+			render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
 			render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 			render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 			render_pass.draw_indexed(0..6, 0, 0..1);
+
+			// gui.gui_root.borrow().draw(&mut gui.immediate_gui);
+			// gui.immediate_gui.draw_queued(&self.display, &mut frame);
 		}
 
-		// submit will accept anything that implements IntoIter
 		self.queue.submit(std::iter::once(encoder.finish()));
 		output.present();
 
@@ -548,26 +548,24 @@ impl GLRenderer {
 	}
 
 	// TODO: Move to gui?
-	// todo uncomment
-	// fn draw_cursor(&self, tex_data: &mut Vec<Vec<(u8, u8, u8, u8)>>, gui: &GameGUI) {
-	// 	for i in 0..gui.cursor.height {
-	// 		let x = gui.cursor.left as usize;
-	// 		let rx = (gui.cursor.left + gui.cursor.width - 1) as usize;
-	// 		let y = (gui.cursor.bottom + i) as usize;
-	// 		tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
-	// 		tex_data[y][rx] = GLRenderer::blend_colors(tex_data[y][rx], (255, 255, 255, 128), 0.5);
-	// 	}
-	// 	for i in 1..gui.cursor.width - 1 {
-	// 		let x = (gui.cursor.left + i) as usize;
-	// 		let ry = (gui.cursor.bottom + gui.cursor.height - 1) as usize;
-	// 		let y = gui.cursor.bottom as usize;
-	// 		tex_data[y][x] = GLRenderer::blend_colors(tex_data[y][x], (255, 255, 255, 128), 0.5);
-	// 		tex_data[ry][x] = GLRenderer::blend_colors(tex_data[ry][x], (255, 255, 255, 128), 0.5);
-	// 	}
-	// }
+	fn draw_cursor(&self, tex_data: &mut TextureData, gui: &GameGUI) {
+		let width = (gui.cursor.max.x - gui.cursor.min.x) as usize;
+		let height = (gui.cursor.max.y - gui.cursor.min.y) as usize;
 
-	fn set_pixel(&mut self, _x: usize, _y: usize, _color: u32) {
-		todo!()
+		for i in 0..(height) {
+			let x = gui.cursor.min.x as usize;
+			let rx = gui.cursor.min.x as usize + width - 1;
+			let y = gui.cursor.min.y as usize + i;
+			tex_data.set_pixel(x, y,  GLRenderer::blend_colors(tex_data.get_pixel(x,  y), (255, 255, 255, 128), 0.5));
+			tex_data.set_pixel(rx, y, GLRenderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.5));
+		}
+		for i in 1..width - 1 {
+			let x = gui.cursor.min.x as usize + i;
+			let ry = gui.cursor.min.y as usize + height - 1;
+			let y = gui.cursor.min.y as usize;
+			tex_data.set_pixel(x, y,  GLRenderer::blend_colors(tex_data.get_pixel(x, y ), (255, 255, 255, 128), 0.5));
+			tex_data.set_pixel(x, ry, GLRenderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.5));
+		}
 	}
 
 	pub fn get_zoom(&self) -> f32 {

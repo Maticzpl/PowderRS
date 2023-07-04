@@ -1,4 +1,5 @@
-use wgpu::VertexBufferLayout;
+use wgpu::{VertexAttribute};
+use crate::rendering::wgpu::vertex_type::VertexType;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -7,17 +8,7 @@ pub struct Vert {
     pub tex_coords: [f32; 2],
 }
 
-impl Vert {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+impl VertexType<2> for Vert {
+    const ATTRIBS: [VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
-
-    pub fn desc() -> VertexBufferLayout<'static> {
-        use std::mem;
-
-        VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
 }

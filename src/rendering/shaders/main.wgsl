@@ -8,18 +8,20 @@ struct VertexOutput {
     @location(1) texture_coord: vec2<f32>
 };
 
-struct PVMUniform {
+struct Uniforms {
     matr: mat4x4<f32>,
+    z: f32,
+    grid: u32,
 };
-@group(1) @binding(0) // 1.
-var<uniform> pvm: PVMUniform;
+@group(1) @binding(0)
+var<uniform> unifs: Uniforms;
 
 @vertex
 fn vs_main(
     input: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.position = pvm.matr * vec4(input.position, 0.0, 1.0); // TODO pvm and z uniforms
+    out.position = unifs.matr * vec4(input.position, 0.0, 1.0); // TODO pvm and z uniforms
     out.texture_coord = input.texture_coord;
     return out;
 }
