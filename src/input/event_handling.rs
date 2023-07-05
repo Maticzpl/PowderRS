@@ -1,18 +1,19 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
+
+use log::{error, warn};
+use winit::dpi::PhysicalPosition;
 use winit::event::ElementState::Pressed;
 use winit::event::MouseScrollDelta::LineDelta;
-use winit::event_loop::EventLoop;
+use winit::event::{DeviceEvent, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
 
-
-use crate::rendering::gl_renderer::GLRenderer;
 use crate::rendering::gui::game_gui::GameGUI;
+use crate::rendering::renderer::GLRenderer;
+use crate::rendering::wgpu::core::Core;
 use crate::sim::Simulation;
 use crate::{tick, TickFnState};
-use crate::rendering::wgpu::core::Core;
 
 pub struct InputData {
 	pub mouse_buttons:      HashMap<MouseButton, bool>,
@@ -21,7 +22,6 @@ pub struct InputData {
 	pub prev_keys:          HashMap<VirtualKeyCode, bool>,
 	pub mouse_pos:          PhysicalPosition<f64>,
 	pub scroll:             f32,
-	pub win_size:           PhysicalSize<u32>,
 }
 
 impl InputData {
@@ -55,7 +55,11 @@ pub fn handle_events(
 		drop(core);
 
 		match event {
-			Event::WindowEvent { event: ev, window_id, .. } if win_id == window_id => {
+			Event::WindowEvent {
+				event: ev,
+				window_id,
+				..
+			} if win_id == window_id => {
 				match ev {
 					WindowEvent::CloseRequested => {
 						flow.set_exit();
@@ -72,30 +76,25 @@ pub fn handle_events(
 						..
 					} => {
 						input.scroll = y;
+						//warn!("SCROLLED: {}", y);
 					}
 					WindowEvent::CursorMoved { position: pos, .. } => {
 						input.mouse_pos.x = pos.x as f64;
 						input.mouse_pos.y = pos.y as f64;
 					}
 					WindowEvent::KeyboardInput {
-						input:
-							KeyboardInput {
-								virtual_keycode: key,
-								state,
-								scancode: _scan,
-								..
-							},
+						input: KeyboardInput {
+							virtual_keycode: Some(key),
+							state,
+							..
+						},
 						..
 					} => {
 						// println!("{:?} k-s {}",key,_scan);
-
-						if key.is_some() {
-							let key = key.unwrap();
-							if state == Pressed {
-								input.keys.insert(key, true);
-							} else {
-								input.keys.remove(&key);
-							}
+						if state == Pressed {
+							input.keys.insert(key, true);
+						} else {
+							input.keys.remove(&key);
 						}
 					}
 					WindowEvent::Resized { 0: size } => {
@@ -108,14 +107,22 @@ pub fn handle_events(
 					_ => {}
 				}
 			}
+			Event::DeviceEvent {
+				event: DeviceEvent::MouseWheel {
+					delta: MouseScrollDelta::LineDelta(_x, y)
+				},
+				..
+			} => {
+				if input.scroll == 0.0 {
+					input.scroll = y;
+				}
+			}
 			Event::RedrawRequested(window_id) if window_id == win_id => {
 				match ren.render(&sim, &mut gui) {
 					Ok(_) => {}
-					Err(wgpu::SurfaceError::Lost) => {
-						ren.resize(size)
-					},
+					Err(wgpu::SurfaceError::Lost) => ren.resize(size),
 					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
-					Err(e) => eprintln!("{:?}", e),
+					Err(e) => error!("{:?}", e),
 				}
 			}
 			Event::MainEventsCleared => {
@@ -123,7 +130,7 @@ pub fn handle_events(
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
 			}
-			_ => {}
+			_ => *flow = ControlFlow::Poll
 		}
 	});
 }

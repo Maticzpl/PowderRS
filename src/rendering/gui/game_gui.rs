@@ -1,15 +1,12 @@
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
-use cgmath::Vector2;
 use wgpu_glyph::ab_glyph::Rect;
 
-use crate::rendering::gui::components::label::Label;
 use crate::rendering::gui::components::root::Root;
 use crate::rendering::gui::components::Component;
-use crate::rendering::gui::components::ComponentAlignment::{Center, LeftTop, MiddleTop};
 use crate::rendering::gui::fps_display::FPSDisplay;
-use crate::rendering::gui::immediate_mode::gui_renderer::{Bounds, ImmediateGUI};
+use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 use crate::rendering::wgpu::core::Core;
 
 pub struct GameGUI<'a> {
@@ -24,8 +21,8 @@ pub struct GameGUI<'a> {
 
 impl GameGUI<'_> {
 	pub(crate) fn new(rendering_core: Rc<RefCell<Core>>) -> Self {
-		let mut gui = ImmediateGUI::new(&rendering_core.borrow());
-		let root = Rc::new(RefCell::new(Root::new(rendering_core))) as Rc<RefCell<dyn Component>>;
+		let mut gui = ImmediateGUI::new(rendering_core.clone());
+		let root = Rc::new(RefCell::new(Root::new())) as Rc<RefCell<dyn Component>>;
 
 		let weak = Rc::downgrade(&root);
 		let fps_displ = FPSDisplay::new(weak, &mut gui);

@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::intrinsics::maxnumf32;
 use std::rc::{Rc, Weak};
 
 use cgmath::Vector2;

@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use cgmath::{Vector2, Zero};
+use wgpu::Color;
 
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 
@@ -132,6 +133,16 @@ impl Component for ComponentBase {
 	}
 
 	fn draw(&self, gui: &mut ImmediateGUI) {
+		gui.queue_rect(
+			self.get_screen_pos(),
+			self.get_size(),
+			Color {
+				r: 1.0,
+				g: 0.0,
+				b: 0.0,
+				a: 0.5,
+			},
+		);
 		for child in &self.children {
 			child.borrow().draw(gui)
 		}
@@ -142,12 +153,12 @@ impl Component for ComponentBase {
 /// Implements trait Component for given struct
 /// ```
 /// define_component! { StructName,
-/// 	fn draw(&self, gui: &ImmediateGUI) {
-/// 		// Draw own stuff
+///     fn draw(&self, gui: &ImmediateGUI) {
+///        // Draw own stuff
 ///
-/// 		// Draw children afterwards
-/// 		self.base.draw(gui);
-/// 	}
+///         // Draw children afterwards
+///         self.base.draw(gui);
+///     }
 /// }
 /// ```
 #[macro_export]

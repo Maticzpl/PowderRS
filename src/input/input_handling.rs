@@ -1,11 +1,12 @@
 use cgmath::num_traits::pow;
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use wgpu_glyph::ab_glyph::{Point, Rect};
+use winit::dpi::PhysicalSize;
 use winit::event::{MouseButton, VirtualKeyCode};
 
 pub use crate::input::event_handling::{handle_events, InputData};
-use crate::rendering::gl_renderer::GLRenderer;
 use crate::rendering::gui::game_gui::GameGUI;
+use crate::rendering::renderer::GLRenderer;
 use crate::sim::{Particle, Simulation, WINH, WINW, XRES, YRES};
 pub use crate::TickFnState;
 
@@ -30,6 +31,12 @@ pub fn handle_input(
 		tick_state.paused = !tick_state.paused;
 	}
 
+	let win_size: PhysicalSize<u32>;
+
+	{
+		win_size = ren.rendering_core.borrow().window_size;
+	}
+
 	// Correct mouse pos
 	let mouse_pos = Vector4 {
 		x: input.mouse_pos.x as f32,
@@ -38,8 +45,8 @@ pub fn handle_input(
 		w: 1.0,
 	};
 	let (sx, sy) = (
-		input.win_size.width as f32 / WINW as f32,
-		input.win_size.height as f32 / WINH as f32,
+		win_size.width as f32 / WINW as f32,
+		win_size.height as f32 / WINH as f32,
 	);
 	let mouse_screen_pos = Vector4 {
 		x: mouse_pos.x / sx,
@@ -56,7 +63,7 @@ pub fn handle_input(
 			mouse_screen_pos;
 
 	let (mut cursor_x, mut cursor_y) = (mouse_pos.x as usize, mouse_pos.y as usize);
-	let hs = gui.brush_size as usize / 2usize; //todo uncomment
+	let hs = gui.brush_size as usize / 2usize; // todo uncomment
 	cursor_x = cursor_x.clamp(hs, (XRES - hs - 1) as usize);
 	cursor_y = cursor_y.clamp(hs, (YRES - hs - 1) as usize);
 
@@ -118,6 +125,8 @@ pub fn handle_input(
 		if gui.grid_size == 3 {
 			gui.grid_size = 0;
 		}
+
+		input.scroll = 0.0;
 	}
 
 	// Zooming
@@ -155,7 +164,7 @@ pub fn handle_input(
 		max: Point {
 			x: (cursor_x - hs) as f32 + gui.brush_size as f32,
 			y: (cursor_y - hs) as f32 + gui.brush_size as f32,
-		}
+		},
 	};
 
 	input.scroll = 0.0;

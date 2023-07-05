@@ -1,12 +1,10 @@
-
-
 // use crate::rendering::gui::game_gui::GameGUI;
 // use crate::sim::Simulation;
 
-pub mod gl_renderer;
 pub mod gui;
-pub mod vert;
+pub mod renderer;
 pub mod texture_data;
+pub mod vert;
 pub mod wgpu;
 
 // borrow checker hates me

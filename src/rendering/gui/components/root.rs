@@ -5,26 +5,20 @@ use cgmath::{Vector2, Zero};
 
 use crate::rendering::gui::components::{Component, ComponentAlignment};
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
-use crate::rendering::wgpu::core::Core;
 
 pub struct Root {
-	rendering_core: Rc<RefCell<Core>>,
-
 	children: Vec<Rc<RefCell<dyn Component>>>,
 }
 
 impl Root {
-	pub(crate) fn new(display: Rc<RefCell<Core>>) -> Self {
-		Self {
-			children: vec![],
-			rendering_core: display,
-		}
+	pub(crate) fn new() -> Self {
+		Self { children: vec![] }
 	}
 }
 
 impl Component for Root {
 	fn get_size(&self) -> Vector2<f32> {
-		let (w, h) = (0,0); // TODO window size here
+		let (w, h) = (0, 0); // TODO window size here
 
 		Vector2::new(w as f32, h as f32)
 	}
@@ -41,19 +35,19 @@ impl Component for Root {
 		Vector2::zero()
 	}
 
-	fn set_offset(&mut self, offset: Vector2<f32>) {
+	fn set_offset(&mut self, _offset: Vector2<f32>) {
 		// dont do anything
 	}
 
-	fn add_offset(&mut self, offset: Vector2<f32>) {
+	fn add_offset(&mut self, _offset: Vector2<f32>) {
 		// dont do anything
 	}
 
-	fn set_alignment(&mut self, alignment: ComponentAlignment) {
+	fn set_alignment(&mut self, _alignment: ComponentAlignment) {
 		// dont do anything
 	}
 
-	fn set_size(&mut self, size: Vector2<f32>) {
+	fn set_size(&mut self, _size: Vector2<f32>) {
 		// ignore ):
 	}
 
