@@ -1,5 +1,5 @@
 use cgmath::num_traits::pow;
-use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
+use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4, Zero};
 use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::PhysicalSize;
 use winit::event::{MouseButton, VirtualKeyCode};
@@ -155,6 +155,13 @@ pub fn handle_input(
 		gui.brush_size =
 			(gui.brush_size as i32 + input.scroll.signum() as i32 * speed).clamp(1, 40) as u32;
 	}
+
+	// Camera center
+	if input.key_just_pressed(&VirtualKeyCode::L) {
+		ren.set_pan(Vector2::zero());
+		ren.set_zoom(1.0);
+	}
+
 
 	gui.cursor = Rect {
 		min: Point {

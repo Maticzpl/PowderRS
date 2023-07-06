@@ -1,6 +1,6 @@
 use wgpu::VertexAttribute;
 
-use crate::rendering::wgpu::vertex_type::VertexType;
+use crate::rendering::render_utils::vertex_type::VertexType;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]

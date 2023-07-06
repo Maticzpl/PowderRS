@@ -5,7 +5,7 @@ pub mod gui;
 pub mod renderer;
 pub mod texture_data;
 pub mod vert;
-pub mod wgpu;
+pub mod render_utils;
 
 // borrow checker hates me
 // pub trait CameraController {

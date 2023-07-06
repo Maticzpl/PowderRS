@@ -1,4 +1,6 @@
+use std::any::Any;
 use std::cell::Cell;
+use std::rc::Rc;
 
 use wgpu::util::DeviceExt;
 use wgpu::{
@@ -6,7 +8,7 @@ use wgpu::{
 	SurfaceError, SurfaceTexture, TextureFormat, TextureView, VertexBufferLayout,
 };
 
-use crate::rendering::wgpu::core::Core;
+use crate::rendering::render_utils::core::Core;
 
 pub enum ShaderType<'a> {
 	Vertex(&'a [VertexBufferLayout<'static>]),
@@ -28,7 +30,7 @@ pub struct Pipeline {
 	pub vert_buffer: wgpu::Buffer,
 	pub vert_num: usize,
 	pub ind_buffer: wgpu::Buffer,
-	bindings: Vec<BindGroup>,
+	bindings: Vec<Rc<BindGroup>>,
 	// Used in render loop
 	output: Cell<Option<SurfaceTexture>>,
 }
@@ -41,8 +43,8 @@ pub struct PipelineDescriptor<'a, T: bytemuck::Pod> {
 	pub vert_buffer:      Buffer,
 	pub vert_num:         usize,
 	pub ind_buffer:       Buffer,
-	pub bindings:         Vec<BindGroup>,
-	pub bindings_layout:  Vec<BindGroupLayout>,
+	pub bindings:         Vec<Rc<BindGroup>>,
+	pub bindings_layout:  Vec<Rc<BindGroupLayout>>,
 	pub format:           TextureFormat,
 }
 
@@ -88,7 +90,7 @@ impl Pipeline {
 
 		descriptor
 			.bindings_layout
-			.insert(0, uniform_bind_group_layout);
+			.insert(0, Rc::new(uniform_bind_group_layout));
 		let mut bindings_ref: Vec<&BindGroupLayout> = vec![];
 		for i in 0..descriptor.bindings_layout.len() {
 			bindings_ref.push(&descriptor.bindings_layout[i]);

@@ -11,7 +11,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::GLRenderer;
-use crate::rendering::wgpu::core::Core;
+use crate::rendering::render_utils::core::Core;
 use crate::sim::Simulation;
 use crate::{tick, TickFnState};
 

@@ -12,9 +12,9 @@ use wgpu_glyph::{
 };
 
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
-use crate::rendering::wgpu::core::Core;
-use crate::rendering::wgpu::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
-use crate::rendering::wgpu::vertex_type::VertexType;
+use crate::rendering::render_utils::core::Core;
+use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
+use crate::rendering::render_utils::vertex_type::VertexType;
 use crate::sim::{WINH, WINW};
 
 #[repr(C)]

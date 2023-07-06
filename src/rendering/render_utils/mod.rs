@@ -3,3 +3,4 @@
 pub mod core;
 pub mod pipeline;
 pub mod vertex_type;
+pub mod texture;

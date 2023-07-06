@@ -5,19 +5,19 @@ use std::rc::Rc;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use instant::Instant;
 use wgpu::util::DeviceExt;
-use wgpu::{
-	include_wgsl, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureAspect, TextureView,
-};
+use wgpu::{include_wgsl, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureAspect, TextureView, TextureFormat, TextureUsages, ShaderStages};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::{Theme};
 
 use crate::rendering::gui::game_gui::GameGUI;
+use crate::rendering::render_utils;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
-use crate::rendering::wgpu::core::Core;
-use crate::rendering::wgpu::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
-use crate::rendering::wgpu::vertex_type::VertexType;
+use crate::rendering::render_utils::core::Core;
+use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
+use crate::rendering::render_utils::texture::Texture;
+use crate::rendering::render_utils::vertex_type::VertexType;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -37,10 +37,7 @@ struct Uniforms {
 pub struct GLRenderer {
 	pub rendering_core: Rc<RefCell<Core>>,
 	pub pipeline:       Pipeline,
-
-	screen_texture:      wgpu::Texture,
-	screen_texture_size: Extent3d,
-	screen_texture_view: TextureView,
+	screen_texture: render_utils::texture::Texture,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -114,86 +111,19 @@ impl GLRenderer {
 			.create_shader_module(include_wgsl!("./shaders/main.wgsl"));
 
 		let texture_size = wgpu::Extent3d {
-			// TODO: Texture abstraction
 			width: WINW as u32,
 			height: WINH as u32,
 			depth_or_array_layers: 1,
 		};
 
-		let screen_texture = rendering_core
-			.device
-			.create_texture(&wgpu::TextureDescriptor {
-				size:            texture_size,
-				mip_level_count: 1,
-				sample_count:    1,
-				dimension:       wgpu::TextureDimension::D2,
-				format:          wgpu::TextureFormat::Rgba8Unorm,
-				usage:           wgpu::TextureUsages::TEXTURE_BINDING
-					| wgpu::TextureUsages::COPY_DST,
-				label:           Some("screen_texture"),
-				view_formats:    &[],
-			});
-		let screen_texture_view =
-			screen_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-		let sampler = rendering_core
-			.device
-			.create_sampler(&wgpu::SamplerDescriptor {
-				address_mode_u: wgpu::AddressMode::ClampToEdge,
-				address_mode_v: wgpu::AddressMode::ClampToEdge,
-				address_mode_w: wgpu::AddressMode::ClampToEdge,
-				mag_filter: wgpu::FilterMode::Nearest,
-				min_filter: wgpu::FilterMode::Nearest,
-				mipmap_filter: wgpu::FilterMode::Nearest,
-				..Default::default()
-			});
-
-		let texture_bind_group_layout =
-			rendering_core
-				.device
-				.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-					entries: &[
-						wgpu::BindGroupLayoutEntry {
-							binding:    0,
-							visibility: wgpu::ShaderStages::FRAGMENT,
-							ty:         wgpu::BindingType::Texture {
-								multisampled:   false,
-								view_dimension: wgpu::TextureViewDimension::D2,
-								sample_type:    wgpu::TextureSampleType::Float {
-									filterable: false,
-								},
-							},
-							count:      None,
-						},
-						wgpu::BindGroupLayoutEntry {
-							binding:    1,
-							visibility: wgpu::ShaderStages::FRAGMENT,
-							ty:         wgpu::BindingType::Sampler(
-								wgpu::SamplerBindingType::NonFiltering,
-							),
-							count:      None,
-						},
-					],
-					label:   Some("texture_bind_group_layout"),
-				});
-
-		let screen_texture_bind_group =
-			rendering_core
-				.device
-				.create_bind_group(&wgpu::BindGroupDescriptor {
-					layout:  &texture_bind_group_layout,
-					entries: &[
-						wgpu::BindGroupEntry {
-							binding:  0,
-							resource: wgpu::BindingResource::TextureView(&screen_texture_view),
-						},
-						wgpu::BindGroupEntry {
-							binding:  1,
-							resource: wgpu::BindingResource::Sampler(&sampler),
-						},
-					],
-					label:   Some("texture_bind_group"),
-				});
+		let screen_texture = Texture::new(
+			&rendering_core.device,
+			texture_size,
+			TextureFormat::Rgba8Unorm,
+			TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+			ShaderStages::FRAGMENT,
+			"Screen"
+		);
 
 		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
 		let model_matrix: Matrix4<f32> = Matrix4::from_translation(Vector3 {
@@ -233,8 +163,8 @@ impl GLRenderer {
 			vert_buffer:      vertex_buffer,
 			vert_num:         square_ind.len(),
 			ind_buffer:       index_buffer,
-			bindings:         vec![screen_texture_bind_group],
-			bindings_layout:  vec![texture_bind_group_layout],
+			bindings:         vec![screen_texture.bind_group.clone()],
+			bindings_layout:  vec![screen_texture.bind_group_layout.clone()],
 			format:           rendering_core.surface_format,
 		});
 
@@ -244,8 +174,6 @@ impl GLRenderer {
 				pipeline: pipeline.unwrap(),
 
 				screen_texture,
-				screen_texture_size: texture_size,
-				screen_texture_view,
 
 				camera_zoom: 1.0,
 				camera_pan: Vector2::from([0.0, 0.0]),
@@ -341,7 +269,7 @@ impl GLRenderer {
 
 		core.queue.write_texture(
 			ImageCopyTexture {
-				texture:   &self.screen_texture,
+				texture:   &self.screen_texture.texture,
 				aspect:    TextureAspect::All,
 				origin:    Origin3d::ZERO,
 				mip_level: 0,
@@ -349,10 +277,10 @@ impl GLRenderer {
 			tex_data.as_slice(),
 			ImageDataLayout {
 				offset:         0,
-				bytes_per_row:  Some(4 * WINW as u32),
-				rows_per_image: Some(WINH as u32),
+				bytes_per_row:  Some(4 * self.screen_texture.size.width),
+				rows_per_image: Some(self.screen_texture.size.height),
 			},
-			self.screen_texture_size,
+			self.screen_texture.size,
 		);
 
 		// WGPU stuff This is a bit mesy, well thats the price you pay not using unsafe rust :P

@@ -7,7 +7,7 @@ use crate::rendering::gui::components::root::Root;
 use crate::rendering::gui::components::Component;
 use crate::rendering::gui::fps_display::FPSDisplay;
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
-use crate::rendering::wgpu::core::Core;
+use crate::rendering::render_utils::core::Core;
 
 pub struct GameGUI<'a> {
 	pub immediate_gui: ImmediateGUI<'a>,
