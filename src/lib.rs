@@ -34,12 +34,6 @@ fn tick(
 	let tps = 1000000 as f64 / dt as f64;
 	tick_state.time_since_tick = Instant::now();
 
-	sim.add_part(Particle {
-		p_type: 2,
-		x:      200,
-		y:      0,
-	});
-
 	// draw cap
 	if tick_state.time_since_render.elapsed().as_micros() > (1000000 / 80) {
 		gui.fps_displ.borrow_mut().tps = tps as f32;

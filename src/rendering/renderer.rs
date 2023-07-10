@@ -119,7 +119,7 @@ impl GLRenderer {
 		let screen_texture = Texture::new(
 			&rendering_core.device,
 			texture_size,
-			TextureFormat::Rgba8Unorm,
+			TextureFormat::Rgba8UnormSrgb,
 			TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
 			ShaderStages::FRAGMENT,
 			"Screen"

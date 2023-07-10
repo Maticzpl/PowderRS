@@ -87,7 +87,7 @@ fn fs_main(
     var allOther: vec4<f32> = rgb_color * f32(ptype != 3 && ptype != 2);
 
     rgb_color = watrCol + dustCol + gridFactor + allOther;
-    rgb_color.a = f32(ptype != 0);
+    rgb_color.a = 1.0;//f32(ptype != 0);
 
 //    var temp = ((rgb_color / 255.0 + 0.055) / 1.055);
 //    var srgb_color: vec4<f32>;
