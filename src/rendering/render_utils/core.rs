@@ -1,20 +1,17 @@
-use wgpu::{
-	CompositeAlphaMode, Device, DeviceType, PresentMode, Queue, Surface, SurfaceConfiguration,
-	TextureFormat,
-};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
+/// Core is a struct handling WGPU instance and window creation
 pub struct Core {
 	pub instance:       wgpu::Instance,
 	pub window:         Window,
 	pub window_size:    PhysicalSize<u32>,
-	pub surface:        Surface,
-	pub surface_format: TextureFormat,
-	pub device:         Device,
-	pub config:         SurfaceConfiguration,
-	pub queue:          Queue,
+	pub surface:        wgpu::Surface,
+	pub surface_format: wgpu::TextureFormat,
+	pub device:         wgpu::Device,
+	pub config:         wgpu::SurfaceConfiguration,
+	pub queue:          wgpu::Queue,
 }
 
 impl Core {
@@ -67,11 +64,11 @@ impl Core {
 			.unwrap();
 
 		let device_type = match adapter.get_info().device_type {
-			DeviceType::Other => "Other",
-			DeviceType::IntegratedGpu => "Integrated GPU",
-			DeviceType::DiscreteGpu => "Discrete GPU",
-			DeviceType::VirtualGpu => "Virtual GPU",
-			DeviceType::Cpu => "CPU",
+			wgpu::DeviceType::Other => "Other",
+			wgpu::DeviceType::IntegratedGpu => "Integrated GPU",
+			wgpu::DeviceType::DiscreteGpu => "Discrete GPU",
+			wgpu::DeviceType::VirtualGpu => "Virtual GPU",
+			wgpu::DeviceType::Cpu => "CPU",
 		};
 
 		log::info!(
@@ -111,8 +108,8 @@ impl Core {
 			format:       surface_format,
 			width:        window_size.width,
 			height:       window_size.height,
-			present_mode: PresentMode::AutoNoVsync,
-			alpha_mode:   surface_caps.alpha_modes[0], // CompositeAlphaMode::PreMultiplied,
+			present_mode: wgpu::PresentMode::AutoNoVsync,
+			alpha_mode:   surface_caps.alpha_modes[0], // wgpu::CompositeAlphaMode::PreMultiplied,
 			view_formats: vec![],
 		};
 		surface.configure(&device, &config);

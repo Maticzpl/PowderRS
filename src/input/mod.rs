@@ -1,2 +1,2 @@
-mod event_handling;
-pub mod input_handling;
+pub mod event_handling;
+pub mod events;

@@ -33,7 +33,7 @@ jobs:
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1.0.6
       with:
-          toolchain: nightly
+          toolchain: nightly-2023-06-25
           components: clippy
           default: true
           override: true

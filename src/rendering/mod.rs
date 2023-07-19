@@ -1,12 +1,12 @@
-// use crate::rendering::gui::game_gui::GameGUI;
-// use crate::sim::Simulation;
-
 pub mod gui;
+mod render_utils;
 pub mod renderer;
-pub mod texture_data;
-pub mod vert;
-pub mod render_utils;
+mod texture_data;
+mod vert;
 
+pub use crate::rendering::render_utils::core::Core;
+
+// TODO: explore this interface idea again or remove it ( i really hope i wont have to implement another renderer tho )
 // borrow checker hates me
 // pub trait CameraController {
 // 	fn get_zoom(&self) -> f32;

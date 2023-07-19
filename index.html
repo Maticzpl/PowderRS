@@ -6,18 +6,44 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>PowderRS</title>
         <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
             canvas {
+                margin: auto;
                 background-color: black;
             }
         </style>
     </head>
 
-    <body id="powderrs">
+    <body>
         <script type="module">
             import init from "./pkg/powder_rs.js";
             init().then(() => {
                 console.log("WASM Loaded");
+                // TODO: better way to disable context menu
+                setTimeout(() => {
+                    document.getElementsByTagName("canvas")[0].oncontextmenu = () => {
+                        return false;
+                    }
+                }, 1000);
             });
         </script>
+        <div id="powderrs">
+        </div>
+        <p>
+            <h2> ⌨️ Controls </h2> <br/>
+            <b>LMB</b> - Place sand <br/>
+            <b>RMB</b> - Erase <br/>
+            <b>Space</b> - Pause game <br/>
+            <b>F</b> - Advance by one frame when paused <br/>
+            <b>Scroll</b> - Change brush size <br/>
+            <b>Shift + Scroll</b> - Change brush size faster <br/>
+            <b>Ctrl + Scroll</b> - Zoom <br/>
+            <b>MMB + Move Mouse</b> - Move the camera <br/>
+            <b>G + Scroll</b> - Change grid size <br/>
+            <b>L</b> - Reset Camera <br/>
+        </p>
     </body>
 </html>

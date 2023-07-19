@@ -10,26 +10,19 @@ mod types;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use cgmath::Vector2;
+use cgmath::{Vector2, Vector4, Zero};
 use instant::Instant;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::dpi::PhysicalPosition;
 
-use crate::input::input_handling::{handle_events, handle_input, InputData};
+use crate::input::event_handling::{handle_events, InputData};
 use crate::rendering::gui::game_gui::GameGUI;
-use crate::rendering::renderer::GLRenderer;
+use crate::rendering::renderer::Renderer;
 use crate::sim::{Particle, Simulation, WINH, WINW};
 
-fn tick(
-	sim: &mut Simulation,
-	ren: &mut GLRenderer,
-	gui: &mut GameGUI,
-	input: &mut InputData,
-	tick_state: &mut TickFnState,
-) {
-	handle_input(sim, ren, gui, input, tick_state);
-
+fn tick(ren: &mut Renderer, gui: &mut GameGUI, tick_state: &mut TickFnState) {
+	// TODO: Move this elsewhere
 	let dt = tick_state.time_since_tick.elapsed().as_micros();
 	let tps = 1000000 as f64 / dt as f64;
 	tick_state.time_since_tick = Instant::now();
@@ -45,10 +38,6 @@ fn tick(
 }
 
 pub struct TickFnState {
-	pub pan_started:       bool,
-	pub pan_start_pos:     Vector2<f32>,
-	pub pan_original:      Vector2<f32>,
-	pub paused:            bool,
 	pub time_since_render: Instant,
 	pub time_since_tick:   Instant,
 }
@@ -56,17 +45,13 @@ pub struct TickFnState {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
 	let mut sim = Simulation::new();
-	let ren = GLRenderer::new().await;
+	let ren = Renderer::new().await;
 	let event_loop = ren.1;
 	let ren = ren.0;
 	let gui = GameGUI::new(Rc::clone(&ren.rendering_core));
 
 	let tick_state = TickFnState {
-		// TODO: Ton of things here should be elsewhere
-		pan_started:       false,
-		pan_start_pos:     Vector2 { x: 0.0, y: 0.0 },
-		pan_original:      Vector2::from([0.0, 0.0]),
-		paused:            false,
+		// TODO:  Move Those two elsewhere
 		time_since_render: Instant::now(),
 		time_since_tick:   Instant::now(),
 	};
@@ -79,6 +64,9 @@ pub async fn run() {
 		prev_keys:          HashMap::new(),
 		mouse_pos:          PhysicalPosition { x: 0.0, y: 0.0 },
 		scroll:             0.0,
+		mouse_pos_vector:   Vector4::zero(),
+		mouse_screen_pos:   Vector4::zero(),
+		cursor_pos:         Vector2::zero(),
 	};
 
 	for i in 0..100 {

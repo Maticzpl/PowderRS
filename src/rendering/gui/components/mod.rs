@@ -1,3 +1,4 @@
+pub mod fps_display;
 pub mod label;
 pub mod root;
 

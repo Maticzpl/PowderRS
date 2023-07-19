@@ -1,17 +1,12 @@
-use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use wgpu::util::DeviceExt;
-use wgpu::{
-	BindGroup, BindGroupLayout, BlendState, Buffer, ColorTargetState, ColorWrites, CommandEncoder,
-	SurfaceError, SurfaceTexture, TextureFormat, TextureView, VertexBufferLayout,
-};
 
 use crate::rendering::render_utils::core::Core;
 
 pub enum ShaderType<'a> {
-	Vertex(&'a [VertexBufferLayout<'static>]),
+	Vertex(&'a [wgpu::VertexBufferLayout<'static>]),
 	Fragment,
 }
 
@@ -30,9 +25,9 @@ pub struct Pipeline {
 	pub vert_buffer: wgpu::Buffer,
 	pub vert_num: usize,
 	pub ind_buffer: wgpu::Buffer,
-	bindings: Vec<Rc<BindGroup>>,
+	bindings: Vec<Rc<wgpu::BindGroup>>,
 	// Used in render loop
-	output: Cell<Option<SurfaceTexture>>,
+	output: Cell<Option<wgpu::SurfaceTexture>>,
 }
 
 pub struct PipelineDescriptor<'a, T: bytemuck::Pod> {
@@ -40,12 +35,12 @@ pub struct PipelineDescriptor<'a, T: bytemuck::Pod> {
 	pub name:             &'a str,
 	pub shaders:          Vec<Shader<'a>>,
 	pub uniform_defaults: T,
-	pub vert_buffer:      Buffer,
+	pub vert_buffer:      wgpu::Buffer,
 	pub vert_num:         usize,
-	pub ind_buffer:       Buffer,
-	pub bindings:         Vec<Rc<BindGroup>>,
-	pub bindings_layout:  Vec<Rc<BindGroupLayout>>,
-	pub format:           TextureFormat,
+	pub ind_buffer:       wgpu::Buffer,
+	pub bindings:         Vec<Rc<wgpu::BindGroup>>,
+	pub bindings_layout:  Vec<Rc<wgpu::BindGroupLayout>>,
+	pub format:           wgpu::TextureFormat,
 }
 
 impl Pipeline {
@@ -91,7 +86,7 @@ impl Pipeline {
 		descriptor
 			.bindings_layout
 			.insert(0, Rc::new(uniform_bind_group_layout));
-		let mut bindings_ref: Vec<&BindGroupLayout> = vec![];
+		let mut bindings_ref: Vec<&wgpu::BindGroupLayout> = vec![];
 		for i in 0..descriptor.bindings_layout.len() {
 			bindings_ref.push(&descriptor.bindings_layout[i]);
 		}
@@ -107,7 +102,7 @@ impl Pipeline {
 
 		let mut vert: Option<Shader> = None;
 		let mut frag: Option<Shader> = None;
-		let mut vert_buffers: &[VertexBufferLayout] = &[];
+		let mut vert_buffers: &[wgpu::VertexBufferLayout] = &[];
 
 		for shader in descriptor.shaders {
 			match shader.shader_type {
@@ -134,10 +129,10 @@ impl Pipeline {
 			}
 		}
 
-		let targets = &[Some(ColorTargetState {
+		let targets = &[Some(wgpu::ColorTargetState {
 			format:     descriptor.format,
-			blend:      Some(BlendState::REPLACE),
-			write_mask: ColorWrites::ALL,
+			blend:      Some(wgpu::BlendState::REPLACE),
+			write_mask: wgpu::ColorWrites::ALL,
 		})];
 
 		if let Some(vert) = vert {
@@ -193,14 +188,17 @@ impl Pipeline {
 				output: Cell::new(None),
 			})
 		} else {
-			return Err(format!(
+			Err(format!(
 				"{} Pipeline: Too many vertex shaders",
 				descriptor.name
-			));
+			))
 		}
 	}
 
-	pub fn create_window_view(&self, rendering_core: &Core) -> Result<TextureView, SurfaceError> {
+	pub fn create_window_view(
+		&self,
+		rendering_core: &Core,
+	) -> Result<wgpu::TextureView, wgpu::SurfaceError> {
 		let output = rendering_core.surface.get_current_texture()?;
 		let view = output
 			.texture
@@ -212,16 +210,16 @@ impl Pipeline {
 
 	pub fn begin_render_pass<'a>(
 		&'a self,
-		view: &'a TextureView,
-		encoder: &'a mut CommandEncoder,
-	) -> Result<wgpu::RenderPass, SurfaceError> {
+		view: &'a wgpu::TextureView,
+		encoder: &'a mut wgpu::CommandEncoder,
+	) -> Result<wgpu::RenderPass, wgpu::SurfaceError> {
 		// I really mean this abstraction layer is simple
 		let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 			label: Some("Render Pass"),
 			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-				view:           &view,
+				view,
 				resolve_target: None,
-				ops:            wgpu::Operations {
+				ops: wgpu::Operations {
 					load:  wgpu::LoadOp::Clear(wgpu::Color {
 						r: 0.0,
 						g: 0.0,
@@ -248,7 +246,7 @@ impl Pipeline {
 		render_pass.draw_indexed(0..(self.vert_num as u32), 0, 0..1);
 	}
 
-	pub fn submit_frame(&self, rendering_core: &mut Core, encoder: CommandEncoder) {
+	pub fn submit_frame(&self, rendering_core: &mut Core, encoder: wgpu::CommandEncoder) {
 		rendering_core
 			.queue
 			.submit(std::iter::once(encoder.finish()));

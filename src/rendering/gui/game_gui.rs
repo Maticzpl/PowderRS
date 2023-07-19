@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use wgpu_glyph::ab_glyph::Rect;
 
+use crate::rendering::gui::components::fps_display::FPSDisplay;
 use crate::rendering::gui::components::root::Root;
 use crate::rendering::gui::components::Component;
-use crate::rendering::gui::fps_display::FPSDisplay;
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 use crate::rendering::render_utils::core::Core;
 

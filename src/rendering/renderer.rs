@@ -5,19 +5,21 @@ use std::rc::Rc;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use instant::Instant;
 use wgpu::util::DeviceExt;
-use wgpu::{include_wgsl, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureAspect, TextureView, TextureFormat, TextureUsages, ShaderStages};
+use wgpu::{
+	include_wgsl, ImageCopyTexture, ImageDataLayout, Origin3d, ShaderStages, TextureAspect,
+	TextureFormat, TextureUsages,
+};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
-use winit::window::{Theme};
 
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::render_utils;
-use crate::rendering::texture_data::TextureData;
-use crate::rendering::vert::Vert;
 use crate::rendering::render_utils::core::Core;
 use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
 use crate::rendering::render_utils::texture::Texture;
 use crate::rendering::render_utils::vertex_type::VertexType;
+use crate::rendering::texture_data::TextureData;
+use crate::rendering::vert::Vert;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -34,10 +36,10 @@ struct Uniforms {
 	               * Buffer is bound with size 72 where the shader expects 80 in group[1] compact index 0 */
 }
 
-pub struct GLRenderer {
+pub struct Renderer {
 	pub rendering_core: Rc<RefCell<Core>>,
 	pub pipeline:       Pipeline,
-	screen_texture: render_utils::texture::Texture,
+	screen_texture:     render_utils::texture::Texture,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -53,7 +55,7 @@ pub struct GLRenderer {
 	model_matrix: Matrix4<f32>,
 }
 
-impl GLRenderer {
+impl Renderer {
 	pub async fn new() -> (Self, EventLoop<()>) {
 		let event_loop = EventLoop::new();
 		let rendering_core = Core::new(
@@ -119,10 +121,10 @@ impl GLRenderer {
 		let screen_texture = Texture::new(
 			&rendering_core.device,
 			texture_size,
-			TextureFormat::Rgba8UnormSrgb,
+			TextureFormat::Rgba8UnormSrgb, // TODO: Make sure im doing srgb correctly
 			TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
 			ShaderStages::FRAGMENT,
-			"Screen"
+			"Screen",
 		);
 
 		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
@@ -340,12 +342,12 @@ impl GLRenderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				GLRenderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
 			);
 			tex_data.set_pixel(
 				rx,
 				y,
-				GLRenderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.5),
 			);
 		}
 		for i in 1..width - 1 {
@@ -355,12 +357,12 @@ impl GLRenderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				GLRenderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
 			);
 			tex_data.set_pixel(
 				x,
 				ry,
-				GLRenderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.5),
 			);
 		}
 	}

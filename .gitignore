@@ -7,3 +7,5 @@ flamegraph.svg
 my_flamegraph.svg
 
 perf.data.old
+
+.idea/
