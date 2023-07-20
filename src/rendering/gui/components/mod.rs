@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use cgmath::{Vector2, Zero};
-use wgpu::Color;
 
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 
@@ -118,12 +117,12 @@ impl Component for ComponentBase {
 		self.user_offset += offset;
 	}
 
-	fn set_size(&mut self, size: Vector2<f32>) {
-		self.size = size;
-	}
-
 	fn set_alignment(&mut self, alignment: ComponentAlignment) {
 		self.alignment = alignment;
+	}
+
+	fn set_size(&mut self, size: Vector2<f32>) {
+		self.size = size;
 	}
 
 	fn get_parent(&self) -> Weak<RefCell<dyn Component>> {
@@ -135,16 +134,16 @@ impl Component for ComponentBase {
 	}
 
 	fn draw(&self, gui: &mut ImmediateGUI) {
-		gui.queue_rect(
-			self.get_screen_pos(),
-			self.get_size(),
-			Color {
-				r: 1.0,
-				g: 0.0,
-				b: 0.0,
-				a: 0.5,
-			},
-		);
+		// gui.queue_rect(
+		// 	self.get_screen_pos(),
+		// 	self.get_size(),
+		// 	Color {
+		// 		r: 1.0,
+		// 		g: 0.0,
+		// 		b: 0.0,
+		// 		a: 0.1,
+		// 	},
+		// );
 		for child in &self.children {
 			child.borrow().draw(gui)
 		}

@@ -16,21 +16,21 @@ pub struct GameGUI<'a> {
 	pub brush_size:    u32,
 	pub gui_root:      Rc<RefCell<dyn Component>>,
 
-	pub fps_displ: Rc<RefCell<FPSDisplay>>,
+	pub fps_display: Rc<RefCell<FPSDisplay>>,
 }
 
 impl GameGUI<'_> {
 	pub(crate) fn new(rendering_core: Rc<RefCell<Core>>) -> Self {
-		let mut gui = ImmediateGUI::new(rendering_core.clone());
+		let mut gui = ImmediateGUI::new(rendering_core);
 		let root = Rc::new(RefCell::new(Root::new())) as Rc<RefCell<dyn Component>>;
 
 		let weak = Rc::downgrade(&root);
-		let fps_displ = FPSDisplay::new(weak, &mut gui);
+		let fps_display = FPSDisplay::new(weak, &mut gui);
 		root.borrow_mut()
-			.add_child(Rc::clone(&fps_displ) as Rc<RefCell<dyn Component>>);
+			.add_child(Rc::clone(&fps_display) as Rc<RefCell<dyn Component>>);
 
 		Self {
-			fps_displ,
+			fps_display,
 			immediate_gui: gui,
 			grid_size: 0,
 			cursor: Rect::default(),

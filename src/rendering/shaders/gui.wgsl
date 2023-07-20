@@ -19,7 +19,7 @@ fn vs_main(
     input: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.position = unifs.transform * vec4(input.position, 0.0, 1.0); //
+    out.position = unifs.transform * vec4(input.position, 0.0, 1.0);
     out.color = input.color;
     return out;
 }

@@ -59,7 +59,7 @@ impl Label {
 
 		match bounds {
 			Bounds::None => {
-				out_size = gui.measure_text(&*text, font_size);
+				out_size = gui.measure_text(text, font_size);
 			}
 			Bounds::Box {
 				size,
@@ -87,7 +87,7 @@ impl Label {
 
 	fn recalculate_size_and_offset(&mut self, gui: &mut ImmediateGUI) {
 		let (size, calc_offset) =
-			Self::calculate_size_and_offset(&*self.text, self.font_size, self.text_bounds, gui);
+			Self::calculate_size_and_offset(&self.text, self.font_size, self.text_bounds, gui);
 
 		self.base.size = size;
 		self.base.offset = calc_offset + self.base.user_offset;

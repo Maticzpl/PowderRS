@@ -14,12 +14,10 @@ use wgpu_glyph::{
 	Layout, Section, Text, VerticalAlign,
 };
 
-use crate::rendering::gui::components::label::Label;
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
 use crate::rendering::render_utils::core::Core;
 use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
 use crate::rendering::render_utils::vertex_type::VertexType;
-use crate::rendering::render_utils::Texture;
 use crate::sim::{WINH, WINW};
 
 #[repr(C)]
@@ -290,6 +288,7 @@ impl ImmediateGUI<'_> {
 		self.pipeline
 			.submit_frame(&mut self.rendering_core.borrow_mut(), encoder, false);
 
+		self.belt.recall();
 		Ok(())
 	}
 
@@ -323,12 +322,12 @@ impl ImmediateGUI<'_> {
 		self.pipeline.draw(&mut render_pass);
 	}
 
-	pub fn finish_drawing<'a>(&mut self, view: &TextureView, encoder: &mut CommandEncoder) {
+	pub fn finish_drawing(&mut self, view: &TextureView, encoder: &mut CommandEncoder) {
 		let core = self.rendering_core.borrow();
 
 		let (w, h) = (core.window_size.width, core.window_size.height);
 		self.font
-			.draw_queued(&core.device, &mut self.belt, encoder, &view, w, h)
+			.draw_queued(&core.device, &mut self.belt, encoder, view, w, h)
 			.unwrap();
 
 		self.belt.finish();

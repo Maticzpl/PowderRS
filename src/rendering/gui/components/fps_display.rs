@@ -26,10 +26,7 @@ pub struct FPSDisplay {
 }
 
 impl FPSDisplay {
-	pub fn new(
-		parent: Weak<RefCell<dyn Component>>,
-		mut gui: &mut ImmediateGUI,
-	) -> Rc<RefCell<Self>> {
+	pub fn new(parent: Weak<RefCell<dyn Component>>, gui: &mut ImmediateGUI) -> Rc<RefCell<Self>> {
 		let mut base = ComponentBase::new(parent);
 		base.set_size(Vector2::new(110.0, 100.0));
 

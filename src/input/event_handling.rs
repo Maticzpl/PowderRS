@@ -6,14 +6,12 @@ use std::time::Duration;
 
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use instant::Instant;
-use log::{error, warn};
+use log::error;
 use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::ElementState::Pressed;
 use winit::event::MouseScrollDelta::{LineDelta, PixelDelta};
-use winit::event::{
-	DeviceEvent, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
-};
+use winit::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::input::events::invoker::InputEventInvoker;
@@ -56,7 +54,7 @@ impl InputData {
 	}
 }
 fn tick(ren: &mut Renderer, gui: &mut GameGUI) {
-	let mut display = gui.fps_displ.borrow_mut();
+	let mut display = gui.fps_display.borrow_mut();
 	let dt = display.time_since_tick.elapsed().as_micros();
 	let tps = 1000000f64 / dt as f64;
 	display.time_since_tick = Instant::now();
@@ -195,9 +193,9 @@ pub fn handle_events(
 				input.mouse_pos_vector = mouse_pos;
 
 				let (mut cursor_x, mut cursor_y) = (mouse_pos.x as usize, mouse_pos.y as usize);
-				let hs = gui.brush_size as usize / 2usize;
-				cursor_x = cursor_x.clamp(hs, XRES - hs - 1);
-				cursor_y = cursor_y.clamp(hs, YRES - hs - 1);
+				let mut hs = gui.brush_size as usize / 2usize;
+				cursor_x = cursor_x.clamp(hs, XRES - hs - (gui.brush_size % 2) as usize);
+				cursor_y = cursor_y.clamp(hs, YRES - hs - (gui.brush_size % 2) as usize);
 				input.cursor_pos = Vector2::new(cursor_x, cursor_y);
 
 				invoker.invoke(&mut sim, &mut ren, &mut gui, &mut input);
@@ -207,6 +205,12 @@ pub fn handle_events(
 						.unwrap()
 						.handle(&mut sim, &mut ren, &mut gui, &mut input);
 				}
+
+				// Clamp again because brush_size can be modified in invoker.invoke()
+				hs = gui.brush_size as usize / 2usize;
+				cursor_x = cursor_x.clamp(hs, XRES - hs - (gui.brush_size % 2) as usize);
+				cursor_y = cursor_y.clamp(hs, YRES - hs - (gui.brush_size % 2) as usize);
+				input.cursor_pos = Vector2::new(cursor_x, cursor_y);
 
 				gui.cursor = Rect {
 					min: Point {

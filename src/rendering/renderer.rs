@@ -16,13 +16,14 @@ use crate::rendering::render_utils;
 use crate::rendering::render_utils::VertexType;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
-use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
+use crate::sim::{Simulation, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
 	1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
-const GUI_PIXELATION: f32 = 0.4;
+// At 0 it's 1 gui pixel = 1 sim pixel at default camera pos and zoom
+const GUI_PIXELATION: f32 = 0.0;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -163,11 +164,7 @@ impl Renderer {
 		);
 
 		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
-		let model_matrix: Matrix4<f32> = Matrix4::from_translation(Vector3 {
-			x: -((UI_MARGIN / 2) as f32),
-			y: -((UI_MARGIN / 2) as f32),
-			z: 0.0,
-		}) * Matrix4::from_nonuniform_scale(
+		let model_matrix: Matrix4<f32> = Matrix4::from_nonuniform_scale(
 			XRES as f32 / WINW as f32,
 			YRES as f32 / WINH as f32,
 			1.0,
@@ -248,7 +245,7 @@ impl Renderer {
 		self.fps_sum += 1000000f64 / dt as f64;
 		self.samples += 1;
 
-		gui.fps_displ.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32;
+		gui.fps_display.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32;
 
 		if self.timers[0].elapsed().as_millis() >= 1000 {
 			self.perf_sum = [0; 3];
@@ -313,7 +310,7 @@ impl Renderer {
 			}
 		}
 
-		self.draw_cursor(&mut tex_data, &gui);
+		self.draw_cursor(&mut tex_data, gui);
 
 		core.queue.write_texture(
 			ImageCopyTexture {
@@ -336,7 +333,6 @@ impl Renderer {
 		drop(core);
 		gui.immediate_gui
 			.draw_to_texture(&self.gui_texture.texture)?;
-		gui.immediate_gui.belt.recall();
 
 		let core = self.rendering_core.borrow_mut();
 		let mut encoder = core
