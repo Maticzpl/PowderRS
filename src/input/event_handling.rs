@@ -1,10 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::thread::sleep;
+use std::time::Duration;
 
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use instant::Instant;
-use log::error;
+use log::{error, warn};
 use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::ElementState::Pressed;
@@ -60,11 +62,18 @@ fn tick(ren: &mut Renderer, gui: &mut GameGUI) {
 	display.time_since_tick = Instant::now();
 
 	// draw cap
-	if display.time_since_frame.elapsed().as_micros() > (1000000 / 60) {
+	if display.time_since_frame.elapsed().as_micros() > (1000000 / 65) {
 		display.tps = tps as f32;
 		let core = ren.rendering_core.borrow();
 		core.window.request_redraw();
 
+		let time_left = Duration::from_micros(1000000 / 60).as_micros() as i128
+			- display.time_since_frame.elapsed().as_micros() as i128
+			- 54i128;
+
+		if time_left > 0 {
+			sleep(Duration::from_micros(time_left as u64));
+		}
 		display.time_since_frame = Instant::now();
 	}
 }

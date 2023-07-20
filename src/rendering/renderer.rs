@@ -393,12 +393,12 @@ impl Renderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4),
 			);
 			tex_data.set_pixel(
 				rx,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.4),
 			);
 		}
 		for i in 1..width - 1 {
@@ -408,12 +408,12 @@ impl Renderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4),
 			);
 			tex_data.set_pixel(
 				x,
 				ry,
-				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.5),
+				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.4),
 			);
 		}
 	}

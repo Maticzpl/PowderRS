@@ -30,10 +30,10 @@ impl InputEvent for DoZoom {
 		input: &mut InputData,
 	) {
 		if input.scroll != 0.0 {
-			let prev_zoom = ren.get_zoom(); // TODO: Remove signum here, fix scroll bug
+			let prev_zoom = ren.get_zoom();
 			let change = input.scroll.signum() / 10.0 * (ren.get_zoom() * 2.0);
 			let mut zoom = ren.get_zoom() + change;
-			zoom = zoom.clamp(1.0, 15.0);
+			zoom = zoom.clamp(1.0, 50.0);
 			ren.set_zoom(zoom);
 
 			#[rustfmt::skip]
