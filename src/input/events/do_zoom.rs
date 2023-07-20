@@ -30,7 +30,7 @@ impl InputEvent for DoZoom {
 		input: &mut InputData,
 	) {
 		if input.scroll != 0.0 {
-			let prev_zoom = ren.get_zoom(); // Signum due to a weird bug in release ):
+			let prev_zoom = ren.get_zoom(); // TODO: Remove signum here, fix scroll bug
 			let change = input.scroll.signum() / 10.0 * (ren.get_zoom() * 2.0);
 			let mut zoom = ren.get_zoom() + change;
 			zoom = zoom.clamp(1.0, 15.0);

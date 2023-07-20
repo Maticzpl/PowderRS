@@ -2,8 +2,8 @@ use rand::prelude::*;
 
 use crate::types::*;
 
-pub const WINW: usize = (1.0 * 1024.0) as usize;
-pub const WINH: usize = (1.0 * 576.0) as usize;
+pub const WINW: usize = (1.3 * 1024.0) as usize;
+pub const WINH: usize = (1.3 * 576.0) as usize;
 pub const UI_MARGIN: usize = 0;
 pub const XRES: usize = WINW - UI_MARGIN;
 pub const YRES: usize = WINH - UI_MARGIN;

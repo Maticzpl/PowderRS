@@ -7,5 +7,5 @@ mod do_pause;
 mod do_rmb_tool;
 mod do_tick;
 mod do_zoom;
-pub mod input_event;
+mod input_event;
 pub mod invoker;

@@ -65,9 +65,12 @@ impl InputEvent for DoPan {
 				pan_original = pan;
 				pan_started = true;
 			} else {
-				pan = pan_original
-					+ (input.mouse_screen_pos.truncate().truncate() - pan_start_pos)
-						/ ren.get_zoom();
+				let mut pan_change =
+					(input.mouse_screen_pos.truncate().truncate() - pan_start_pos) / ren.get_zoom();
+				pan_change.x *= ren.get_window_scale_factor().x;
+				pan_change.y *= ren.get_window_scale_factor().y;
+
+				pan = pan_original + pan_change;
 
 				ren.set_pan(pan);
 			}

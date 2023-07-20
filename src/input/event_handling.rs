@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
-use log::error;
+use log::{error, warn};
 use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::ElementState::Pressed;
@@ -160,13 +160,14 @@ pub fn handle_events(
 					z: 0.0,
 					w: 1.0,
 				};
-				let (sx, sy) = (
+				let scale_factor = Vector2::new(
 					win_size.width as f32 / WINW as f32,
 					win_size.height as f32 / WINH as f32,
 				);
+
 				input.mouse_screen_pos = Vector4 {
-					x: mouse_pos.x / sx,
-					y: mouse_pos.y / sy,
+					x: mouse_pos.x / scale_factor.x,
+					y: mouse_pos.y / scale_factor.y,
 					z: 0.0,
 					w: 1.0,
 				};

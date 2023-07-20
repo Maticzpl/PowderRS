@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::intrinsics::minnumf32;
 use std::rc::Rc;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
@@ -14,10 +13,7 @@ use winit::event_loop::EventLoop;
 
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::render_utils;
-use crate::rendering::render_utils::core::Core;
-use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
-use crate::rendering::render_utils::texture::Texture;
-use crate::rendering::render_utils::vertex_type::VertexType;
+use crate::rendering::render_utils::VertexType;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::vert::Vert;
 use crate::sim::{Simulation, UI_MARGIN, WINH, WINW, XRES, YRES};
@@ -37,9 +33,9 @@ struct Uniforms {
 }
 
 pub struct Renderer {
-	pub rendering_core: Rc<RefCell<Core>>,
-	pub pipeline:       Pipeline,
-	screen_texture:     render_utils::texture::Texture,
+	pub rendering_core: Rc<RefCell<render_utils::Core>>,
+	pub pipeline:       render_utils::Pipeline,
+	screen_texture:     render_utils::Texture,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -47,8 +43,9 @@ pub struct Renderer {
 	fps_sum:     f64,
 	samples:     u32,
 
-	camera_zoom: f32,
-	camera_pan:  Vector2<f32>,
+	window_scale_factor: Vector2<f32>, // TODO: maybe find a better name
+	camera_zoom:         f32,
+	camera_pan:          Vector2<f32>,
 
 	proj_matrix:  Matrix4<f32>,
 	view_matrix:  Matrix4<f32>,
@@ -58,7 +55,7 @@ pub struct Renderer {
 impl Renderer {
 	pub async fn new() -> (Self, EventLoop<()>) {
 		let event_loop = EventLoop::new();
-		let rendering_core = Core::new(
+		let rendering_core = render_utils::Core::new(
 			"PowderRS",
 			PhysicalSize::new(WINW as u32, WINH as u32),
 			&event_loop,
@@ -118,7 +115,7 @@ impl Renderer {
 			depth_or_array_layers: 1,
 		};
 
-		let screen_texture = Texture::new(
+		let screen_texture = render_utils::Texture::new(
 			&rendering_core.device,
 			texture_size,
 			TextureFormat::Rgba8UnormSrgb, // TODO: Make sure im doing srgb correctly
@@ -146,18 +143,18 @@ impl Renderer {
 		};
 
 		let vertex_desc = &[Vert::description()];
-		let vert = Shader {
+		let vert = render_utils::Shader {
 			module:      &shader,
 			entry:       "vs_main",
-			shader_type: ShaderType::Vertex(vertex_desc),
+			shader_type: render_utils::ShaderType::Vertex(vertex_desc),
 		};
-		let frag = Shader {
+		let frag = render_utils::Shader {
 			module:      &shader,
 			entry:       "fs_main",
-			shader_type: ShaderType::Fragment,
+			shader_type: render_utils::ShaderType::Fragment,
 		};
 
-		let pipeline = Pipeline::new(PipelineDescriptor {
+		let pipeline = render_utils::Pipeline::new(render_utils::PipelineDescriptor {
 			device:           &rendering_core.device,
 			name:             "Rendering",
 			shaders:          vec![vert, frag],
@@ -177,6 +174,7 @@ impl Renderer {
 
 				screen_texture,
 
+				window_scale_factor: Vector2::new(1.0, 1.0),
 				camera_zoom: 1.0,
 				camera_pan: Vector2::from([0.0, 0.0]),
 
@@ -219,7 +217,8 @@ impl Renderer {
 		// Adjust size
 		let (ww, wh) = (core.window_size.width, core.window_size.height);
 		let mut window_size = Vector2::new(ww as f32 / WINW as f32, wh as f32 / WINH as f32);
-		window_size = window_size / minnumf32(window_size.x, window_size.y) as f32;
+		window_size = window_size / window_size.x.min(window_size.y);
+		self.window_scale_factor = window_size;
 
 		#[rustfmt::skip]
 		let view_matrix =
@@ -365,6 +364,10 @@ impl Renderer {
 				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.5),
 			);
 		}
+	}
+
+	pub fn get_window_scale_factor(&self) -> Vector2<f32> {
+		self.window_scale_factor
 	}
 
 	pub fn get_zoom(&self) -> f32 {
