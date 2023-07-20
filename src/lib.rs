@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cgmath::{Vector2, Vector4, Zero};
-use instant::Instant;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::dpi::PhysicalPosition;
@@ -21,27 +20,6 @@ use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
 use crate::sim::{Particle, Simulation, WINH, WINW};
 
-fn tick(ren: &mut Renderer, gui: &mut GameGUI, tick_state: &mut TickFnState) {
-	// TODO: Move this elsewhere
-	let dt = tick_state.time_since_tick.elapsed().as_micros();
-	let tps = 1000000 as f64 / dt as f64;
-	tick_state.time_since_tick = Instant::now();
-
-	// draw cap
-	if tick_state.time_since_render.elapsed().as_micros() > (1000000 / 80) {
-		gui.fps_displ.borrow_mut().tps = tps as f32;
-		let core = ren.rendering_core.borrow();
-		core.window.request_redraw();
-
-		tick_state.time_since_render = Instant::now();
-	}
-}
-
-pub struct TickFnState {
-	pub time_since_render: Instant,
-	pub time_since_tick:   Instant,
-}
-
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
 	let mut sim = Simulation::new();
@@ -49,12 +27,6 @@ pub async fn run() {
 	let event_loop = ren.1;
 	let ren = ren.0;
 	let gui = GameGUI::new(Rc::clone(&ren.rendering_core));
-
-	let tick_state = TickFnState {
-		// TODO:  Move Those two elsewhere
-		time_since_render: Instant::now(),
-		time_since_tick:   Instant::now(),
-	};
 
 	let input: InputData = InputData {
 		// TODO: Ton of things here should be elsewhere
@@ -125,5 +97,5 @@ pub async fn run() {
 	});
 
 	let rendering_core = ren.rendering_core.clone();
-	handle_events(event_loop, input, sim, ren, gui, tick_state, rendering_core);
+	handle_events(event_loop, input, sim, ren, gui, rendering_core);
 }

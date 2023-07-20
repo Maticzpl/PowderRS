@@ -1,20 +1,25 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::intrinsics::size_of;
 use std::rc::Rc;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use wgpu::util::{DeviceExt, StagingBelt};
-use wgpu::{include_wgsl, BufferAddress, Color, CommandEncoder, RenderPass, TextureView};
+use wgpu::{
+	include_wgsl, BufferAddress, Color, CommandEncoder, RenderPass, SurfaceError, TextureView,
+	TextureViewDescriptor,
+};
 use wgpu_glyph::ab_glyph::FontRef;
 use wgpu_glyph::{
 	BuiltInLineBreaker, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign,
 	Layout, Section, Text, VerticalAlign,
 };
 
+use crate::rendering::gui::components::label::Label;
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
 use crate::rendering::render_utils::core::Core;
 use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
 use crate::rendering::render_utils::vertex_type::VertexType;
+use crate::rendering::render_utils::Texture;
 use crate::sim::{WINH, WINW};
 
 #[repr(C)]
@@ -39,7 +44,7 @@ pub struct ImmediateGUI<'a> {
 	pipeline: Pipeline,
 	rendering_core: Rc<RefCell<Core>>,
 	pub belt: StagingBelt,
-	pub window_scale_ratio: Vector2<f32>,
+	pub window_scale_ratio: Cell<Vector2<f32>>,
 }
 
 impl ImmediateGUI<'_> {
@@ -120,7 +125,7 @@ impl ImmediateGUI<'_> {
 		Self {
 			font: glyph_brush,
 			rect_num: 0,
-			window_scale_ratio: Vector2::new(1.0, 1.0),
+			window_scale_ratio: Cell::new(Vector2::new(1.0, 1.0)),
 			pipeline: gui_pipeline,
 			belt: StagingBelt::new(1024),
 			rendering_core,
@@ -150,7 +155,7 @@ impl ImmediateGUI<'_> {
 		let section = Section::default()
 			.add_text(
 				Text::new(text)
-					.with_scale(font_size * self.window_scale_ratio.y)
+					.with_scale(font_size * self.window_scale_ratio.get().y)
 					.with_color(color)
 					.with_font_id(font.unwrap_or(FontId(0))),
 			)
@@ -257,12 +262,46 @@ impl ImmediateGUI<'_> {
 		self.rect_num += 1;
 	}
 
-	pub fn draw_queued<'a>(&'a mut self, mut render_pass: RenderPass<'a>) {
+	pub fn draw_to_texture(&mut self, texture: &wgpu::Texture) -> Result<(), SurfaceError> {
+		let view = texture.create_view(&TextureViewDescriptor {
+			label:             Some("GUI Fullscreen texture view descriptor"),
+			format:            None,
+			dimension:         None,
+			aspect:            Default::default(),
+			base_mip_level:    0,
+			mip_level_count:   None,
+			base_array_layer:  0,
+			array_layer_count: None,
+		});
+
+		let core = self.rendering_core.borrow_mut();
+		// Is this the correct way to do this?
+		let mut encoder = core
+			.device
+			.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+				label: Some("GUI Render Encoder"),
+			});
+		drop(core);
+
+		let render_pass = self.pipeline.begin_render_pass(&view, &mut encoder, true)?;
+
+		self.draw_queued(render_pass);
+		self.finish_drawing(&view, &mut encoder);
+		self.pipeline
+			.submit_frame(&mut self.rendering_core.borrow_mut(), encoder, false);
+
+		Ok(())
+	}
+
+	pub fn draw_queued<'a>(&'a self, mut render_pass: RenderPass<'a>) {
 		let core = self.rendering_core.borrow();
 		let (w, h) = (core.window_size.width, core.window_size.height);
-		self.window_scale_ratio = Vector2::from([w as f32 / WINW as f32, h as f32 / WINH as f32]);
 
-		self.pipeline.vert_num = (self.rect_num * 6) as usize;
+		self.window_scale_ratio.set(Vector2::from([
+			w as f32 / WINW as f32,
+			h as f32 / WINH as f32,
+		]));
+		self.pipeline.vert_num.set((self.rect_num * 6) as usize);
 
 		// Shapes transform
 		let transform = <Matrix4<f32> as Into<[[f32; 4]; 4]>>::into(

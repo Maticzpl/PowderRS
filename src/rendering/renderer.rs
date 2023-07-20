@@ -22,20 +22,23 @@ pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
 	1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
+const GUI_PIXELATION: f32 = 0.4;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Uniforms {
 	mat:     [[f32; 4]; 4],
+	gui_mat: [[f32; 4]; 4],
 	z:       f32,
 	grid:    u32,
-	padding: f64, /* Dummy variable for padding
-	               * Buffer is bound with size 72 where the shader expects 80 in group[1] compact index 0 */
+	padding: f64, /* Buffer is bound with size 136 where the shader expects 144 in group[0] compact index 0 */
 }
 
 pub struct Renderer {
 	pub rendering_core: Rc<RefCell<render_utils::Core>>,
 	pub pipeline:       render_utils::Pipeline,
 	screen_texture:     render_utils::Texture,
+	gui_texture:        render_utils::Texture,
 
 	frame_start: Instant,
 	timers:      [Instant; 4],
@@ -83,9 +86,29 @@ impl Renderer {
 				pos:        [-w, -h],
 				tex_coords: [0f32, 0f32],
 			},
+			// This needs to be duplicated for GUI
+			Vert {
+				pos:        [-w, h],
+				tex_coords: [2f32, 1f32],
+			},
+			Vert {
+				pos:        [w, h],
+				tex_coords: [3f32, 1f32],
+			},
+			Vert {
+				pos:        [w, -h],
+				tex_coords: [3f32, 0f32],
+			},
+			Vert {
+				pos:        [-w, -h],
+				tex_coords: [2f32, 0f32],
+			},
 		];
 
-		let square_ind: &[u32] = &[0, 1, 2, 0, 2, 3];
+		let square_ind: &[u32] = &[
+			0, 1, 2, 0, 2, 3, // SIM rect
+			4, 5, 6, 4, 6, 7, // GUI rect
+		];
 
 		let vertex_buffer =
 			rendering_core
@@ -124,6 +147,21 @@ impl Renderer {
 			"Screen",
 		);
 
+		let gui_texture = render_utils::Texture::new(
+			&rendering_core.device,
+			wgpu::Extent3d {
+				width: (WINW as f32 / (1.0 + GUI_PIXELATION)) as u32,
+				height: (WINH as f32 / (1.0 + GUI_PIXELATION)) as u32,
+				depth_or_array_layers: 1,
+			},
+			TextureFormat::Bgra8UnormSrgb,
+			TextureUsages::TEXTURE_BINDING
+				| TextureUsages::COPY_DST
+				| TextureUsages::RENDER_ATTACHMENT,
+			ShaderStages::FRAGMENT,
+			"GUI",
+		);
+
 		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
 		let model_matrix: Matrix4<f32> = Matrix4::from_translation(Vector3 {
 			x: -((UI_MARGIN / 2) as f32),
@@ -137,6 +175,7 @@ impl Renderer {
 
 		let temp_val = Uniforms {
 			mat:     (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into(),
+			gui_mat: (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into(),
 			z:       0.0,
 			grid:    0,
 			padding: 0f64,
@@ -162,8 +201,14 @@ impl Renderer {
 			vert_buffer:      vertex_buffer,
 			vert_num:         square_ind.len(),
 			ind_buffer:       index_buffer,
-			bindings:         vec![screen_texture.bind_group.clone()],
-			bindings_layout:  vec![screen_texture.bind_group_layout.clone()],
+			bindings:         vec![
+				screen_texture.bind_group.clone(),
+				gui_texture.bind_group.clone(),
+			],
+			bindings_layout:  vec![
+				screen_texture.bind_group_layout.clone(),
+				gui_texture.bind_group_layout.clone(),
+			],
 			format:           rendering_core.surface_format,
 		});
 
@@ -173,6 +218,7 @@ impl Renderer {
 				pipeline: pipeline.unwrap(),
 
 				screen_texture,
+				gui_texture,
 
 				window_scale_factor: Vector2::new(1.0, 1.0),
 				camera_zoom: 1.0,
@@ -237,6 +283,7 @@ impl Renderer {
 				* self.view_matrix
 				* self.model_matrix)
 				.into(),
+			gui_mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix).into(),
 			z:       0.0,
 			grid:    gui.grid_size,
 			padding: 0f64,
@@ -284,7 +331,14 @@ impl Renderer {
 			self.screen_texture.size,
 		);
 
-		// WGPU stuff This is a bit mesy, well thats the price you pay not using unsafe rust :P
+		// WGPU stuff This is a bit messy, well that's the price you pay not using unsafe rust :P
+		gui.gui_root.borrow().draw(&mut gui.immediate_gui);
+		drop(core);
+		gui.immediate_gui
+			.draw_to_texture(&self.gui_texture.texture)?;
+		gui.immediate_gui.belt.recall();
+
+		let core = self.rendering_core.borrow_mut();
 		let mut encoder = core
 			.device
 			.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -292,18 +346,16 @@ impl Renderer {
 			});
 
 		let view = self.pipeline.create_window_view(&core)?;
-		let mut render_pass = self.pipeline.begin_render_pass(&view, &mut encoder)?;
+		let mut render_pass = self
+			.pipeline
+			.begin_render_pass(&view, &mut encoder, false)?;
 
 		self.pipeline.draw(&mut render_pass);
 
-		gui.gui_root.borrow().draw(&mut gui.immediate_gui);
-		gui.immediate_gui.draw_queued(render_pass);
-		gui.immediate_gui.finish_drawing(&view, &mut encoder);
-
 		drop(core);
+		drop(render_pass);
 		self.pipeline
-			.submit_frame(&mut self.rendering_core.borrow_mut(), encoder);
-		gui.immediate_gui.belt.recall();
+			.submit_frame(&mut self.rendering_core.borrow_mut(), encoder, true);
 
 		Ok(())
 	}

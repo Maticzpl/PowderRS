@@ -23,7 +23,7 @@ pub struct Pipeline {
 	pub uniform_buffer: wgpu::Buffer,
 	pub uniform_bind_group: wgpu::BindGroup,
 	pub vert_buffer: wgpu::Buffer,
-	pub vert_num: usize,
+	pub vert_num: Cell<usize>,
 	pub ind_buffer: wgpu::Buffer,
 	bindings: Vec<Rc<wgpu::BindGroup>>,
 	// Used in render loop
@@ -131,7 +131,7 @@ impl Pipeline {
 
 		let targets = &[Some(wgpu::ColorTargetState {
 			format:     descriptor.format,
-			blend:      Some(wgpu::BlendState::REPLACE),
+			blend:      Some(wgpu::BlendState::ALPHA_BLENDING),
 			write_mask: wgpu::ColorWrites::ALL,
 		})];
 
@@ -183,7 +183,7 @@ impl Pipeline {
 				vert_buffer: descriptor.vert_buffer,
 				ind_buffer: descriptor.ind_buffer,
 				bindings: descriptor.bindings,
-				vert_num: descriptor.vert_num,
+				vert_num: Cell::new(descriptor.vert_num),
 
 				output: Cell::new(None),
 			})
@@ -212,6 +212,7 @@ impl Pipeline {
 		&'a self,
 		view: &'a wgpu::TextureView,
 		encoder: &'a mut wgpu::CommandEncoder,
+		transparent: bool,
 	) -> Result<wgpu::RenderPass, wgpu::SurfaceError> {
 		// I really mean this abstraction layer is simple
 		let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -224,7 +225,7 @@ impl Pipeline {
 						r: 0.0,
 						g: 0.0,
 						b: 0.0,
-						a: 1.0, // if window is transparent remember to make this 0
+						a: if transparent { 0.0 } else { 1.0 },
 					}),
 					store: true,
 				},
@@ -243,14 +244,21 @@ impl Pipeline {
 		}
 		render_pass.set_vertex_buffer(0, self.vert_buffer.slice(..));
 		render_pass.set_index_buffer(self.ind_buffer.slice(..), wgpu::IndexFormat::Uint32);
-		render_pass.draw_indexed(0..(self.vert_num as u32), 0, 0..1);
+		render_pass.draw_indexed(0..(self.vert_num.get() as u32), 0, 0..1);
 	}
 
-	pub fn submit_frame(&self, rendering_core: &mut Core, encoder: wgpu::CommandEncoder) {
+	pub fn submit_frame(
+		&self,
+		rendering_core: &mut Core,
+		encoder: wgpu::CommandEncoder,
+		present: bool,
+	) {
 		rendering_core
 			.queue
 			.submit(std::iter::once(encoder.finish()));
-		self.output.take().unwrap().present();
-		self.output.set(None);
+		if present {
+			self.output.take().unwrap().present();
+			self.output.set(None);
+		}
 	}
 }

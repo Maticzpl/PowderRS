@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use cgmath::Vector2;
+use instant::Instant;
 use wgpu::Color;
 use wgpu_glyph::FontId;
 
@@ -13,6 +14,9 @@ use crate::rendering::gui::immediate_mode::gui_renderer::{Bounds, ImmediateGUI};
 
 pub struct FPSDisplay {
 	base: ComponentBase,
+
+	pub time_since_frame: Instant,
+	pub time_since_tick:  Instant,
 
 	pub fps: f32,
 	pub tps: f32,
@@ -31,6 +35,8 @@ impl FPSDisplay {
 
 		let root = Rc::new(RefCell::new(Self {
 			base,
+			time_since_frame: Instant::now(),
+			time_since_tick: Instant::now(),
 			fps: 0.0,
 			tps: 0.0,
 			fps_label: None,
@@ -42,12 +48,12 @@ impl FPSDisplay {
 
 		let mut fps_label = Label::new(
 			"FPS",
-			50.0,
+			40.0,
 			Color::WHITE,
 			FontId(0),
 			Bounds::None,
-			Vector2::new(0.0, 50.0),
-			&mut gui,
+			Vector2::new(0.0, 40.0),
+			gui,
 			weak,
 		);
 		fps_label.set_alignment(LeftTop);
@@ -62,12 +68,12 @@ impl FPSDisplay {
 
 		let mut tps_label = Label::new(
 			"TPS",
-			50.0,
+			40.0,
 			Color::WHITE,
 			FontId(0),
 			Bounds::None,
 			Vector2::new(0.0, 0.0),
-			&mut gui,
+			gui,
 			weak,
 		);
 		tps_label.set_alignment(LeftTop);
@@ -85,9 +91,9 @@ define_component! { FPSDisplay,
 	fn draw(&self, gui: &mut ImmediateGUI) {
 		let fps = self.fps_label.as_ref().unwrap();
 		let tps = self.tps_label.as_ref().unwrap();
-		fps.borrow_mut().set_text(format!("{:.2}", self.fps).as_str(), gui);
-		tps.borrow_mut().set_text(format!("{:.2}", self.tps).as_str(), gui);
-		fps.borrow_mut().set_offset(Vector2::new(0.0, 50.0 * gui.window_scale_ratio.y));
+		fps.borrow_mut().set_text(format!("FPS: {:.2}", self.fps).as_str(), gui);
+		tps.borrow_mut().set_text(format!("TPS: {:.2}", self.tps).as_str(), gui);
+		fps.borrow_mut().set_offset(Vector2::new(0.0, 40.0 * gui.window_scale_ratio.get().y));
 
 		self.base.draw(gui);
 	}

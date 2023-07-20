@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
-use log::{error, warn};
+use instant::Instant;
+use log::error;
 use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::ElementState::Pressed;
@@ -18,7 +19,6 @@ use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
 use crate::rendering::Core;
 use crate::sim::{Simulation, WINH, WINW, XRES, YRES};
-use crate::{tick, TickFnState};
 
 pub struct InputData {
 	pub mouse_buttons:      HashMap<MouseButton, bool>,
@@ -53,14 +53,27 @@ impl InputData {
 		self.mouse_buttons.get(button).is_none() && self.prev_mouse_buttons.get(button).is_some()
 	}
 }
+fn tick(ren: &mut Renderer, gui: &mut GameGUI) {
+	let mut display = gui.fps_displ.borrow_mut();
+	let dt = display.time_since_tick.elapsed().as_micros();
+	let tps = 1000000f64 / dt as f64;
+	display.time_since_tick = Instant::now();
 
+	// draw cap
+	if display.time_since_frame.elapsed().as_micros() > (1000000 / 60) {
+		display.tps = tps as f32;
+		let core = ren.rendering_core.borrow();
+		core.window.request_redraw();
+
+		display.time_since_frame = Instant::now();
+	}
+}
 pub fn handle_events(
 	event_loop: EventLoop<()>,
 	mut input: InputData,
 	mut sim: Simulation,
 	mut ren: Renderer,
 	mut gui: GameGUI<'static>,
-	mut tick_state: TickFnState,
 	rendering_core: Rc<RefCell<Core>>,
 ) {
 	let invoker = InputEventInvoker::new();
@@ -97,7 +110,10 @@ pub fn handle_events(
 								input.scroll = y as f32;
 							}
 						}
-						input.scroll = input.scroll.signum();
+						// Can happen with horizontal scroll
+						if input.scroll != 0.0 {
+							input.scroll = input.scroll.signum();
+						}
 					}
 					WindowEvent::CursorMoved { position: pos, .. } => {
 						input.mouse_pos.x = pos.x;
@@ -125,19 +141,7 @@ pub fn handle_events(
 					WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
 						ren.resize(*new_inner_size);
 					}
-
 					_ => {}
-				}
-			}
-			Event::DeviceEvent {
-				event:
-					DeviceEvent::MouseWheel {
-						delta: MouseScrollDelta::LineDelta(_x, y),
-					},
-				..
-			} => {
-				if input.scroll == 0.0 {
-					input.scroll = y;
 				}
 			}
 			Event::RedrawRequested(window_id) if window_id == win_id => {
@@ -149,6 +153,7 @@ pub fn handle_events(
 				}
 			}
 			Event::MainEventsCleared => {
+				// TODO: Clean this up
 				let win_size: PhysicalSize<u32>;
 				{
 					win_size = ren.rendering_core.borrow().window_size;
@@ -207,7 +212,7 @@ pub fn handle_events(
 
 				input.scroll = 0.0;
 
-				tick(&mut ren, &mut gui, &mut tick_state);
+				tick(&mut ren, &mut gui);
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
 			}
