@@ -17,7 +17,7 @@ use crate::rendering::render_utils::VertexType;
 use crate::rendering::texture_data::TextureData;
 use crate::rendering::timing::Timing;
 use crate::rendering::vert::Vert;
-use crate::sim::{Simulation, WINH, WINW, XRES, YRES};
+use crate::simulation::sim::{Simulation, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
 	1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0
@@ -283,7 +283,7 @@ impl Renderer {
 			}
 			let pt = sim.get_part(i);
 			if pt.p_type != 0 {
-				let col = pt.get_type().col;
+				let col = pt.get_type(&sim.element_manager).col;
 				tex_data.set_pixel(
 					pt.x as usize,
 					pt.y as usize,

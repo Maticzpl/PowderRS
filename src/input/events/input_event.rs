@@ -3,7 +3,7 @@ use winit::event::{MouseButton, VirtualKeyCode};
 use crate::input::event_handling::InputData;
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::sim::Simulation;
+use crate::simulation::sim::Simulation;
 
 /// `PRESSED` will make the event run only on the first frame of the key being pressed  
 /// `HELD` will make the event run on every frame the key is pressed

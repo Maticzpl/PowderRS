@@ -16,7 +16,7 @@ use crate::input::events::invoker::InputEventInvoker;
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
 use crate::rendering::Core;
-use crate::sim::{Simulation, WINH, WINW, XRES, YRES};
+use crate::simulation::sim::{Simulation, WINH, WINW, XRES, YRES};
 
 pub struct InputData {
 	pub mouse_buttons:      HashMap<MouseButton, bool>,

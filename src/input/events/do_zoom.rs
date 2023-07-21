@@ -5,7 +5,7 @@ use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState};
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::sim::{Simulation, WINH, WINW};
+use crate::simulation::sim::{Simulation, WINH, WINW};
 
 pub struct DoZoom {}
 

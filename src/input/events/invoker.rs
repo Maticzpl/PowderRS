@@ -13,7 +13,7 @@ use crate::input::events::do_zoom::DoZoom;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyState, LogicalOperator};
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::sim::Simulation;
+use crate::simulation::sim::Simulation;
 
 pub struct InputEventInvoker {
 	events: Vec<Box<dyn InputEvent>>

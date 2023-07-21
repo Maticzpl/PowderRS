@@ -1,47 +1,34 @@
 use rand::prelude::*;
 
-use crate::types::*;
+use crate::simulation::elements::*;
+use crate::simulation::Particle;
 
+// TODO: find a good window / sim size
 pub const WINW: usize = (1.0 * 1024.0) as usize;
 pub const WINH: usize = (1.0 * 576.0) as usize;
 pub const XRES: usize = WINW;
 pub const YRES: usize = WINH;
 pub const XYRES: usize = XRES * YRES;
-pub const PT_EMPTY: Particle = Particle {
-	p_type: PT_NONE.id,
-	x:      0,
-	y:      0
-};
 
-#[repr(C)]
-#[derive(Default, Copy, Clone, Debug)]
-pub struct Particle {
-	pub p_type: u32,
-	pub x:      u32,
-	pub y:      u32
-}
-impl Particle {
-	pub fn get_type(&self) -> PartType {
-		return PT_TYPES[self.p_type as usize];
-	}
-}
 
 pub struct Simulation {
-	pub parts:  Box<[Particle]>,
-	pub pmap:   Box<[Option<usize>]>,
-	pub paused: bool,
-	part_count: usize
+	pub parts:           Box<[Particle]>,
+	pub pmap:            Box<[Option<usize>]>,
+	pub paused:          bool,
+	pub element_manager: ElementManager,
+	part_count:          usize
 }
 impl Simulation {
 	pub fn new() -> Self {
-		let p = vec![PT_EMPTY; XYRES].into_boxed_slice();
+		let p = vec![Particle::default(); XYRES].into_boxed_slice();
 		let pm = vec![None; XYRES].into_boxed_slice();
 
 		Self {
-			parts:      p,
-			pmap:       pm,
-			paused:     false,
-			part_count: 0
+			parts:           p,
+			pmap:            pm,
+			paused:          false,
+			element_manager: ElementManager::new(),
+			part_count:      0
 		}
 	}
 
@@ -58,9 +45,9 @@ impl Simulation {
 
 		for i in 0..self.parts.len() {
 			if self.parts[i].p_type == 0 {
-				self.parts[i] = part;
 				self.part_count += 1;
 				self.pmap[part.x as usize + (part.y as usize * XRES)] = Some(i);
+				self.parts[i] = part;
 				return Some(i);
 			}
 		}
@@ -72,7 +59,7 @@ impl Simulation {
 			return Err(());
 		}
 		self.pmap[self.parts[id].x as usize + (self.parts[id].y as usize * XRES)] = None;
-		self.parts[id] = PT_EMPTY;
+		self.parts[id] = Particle::default();
 		self.part_count -= 1;
 		return Ok(());
 	}
@@ -115,7 +102,7 @@ impl Simulation {
 			}
 
 			if self.parts[i].p_type != 0 {
-				let index = self.parts[i].x + (self.parts[i].y * XRES as u32);
+				let index = self.parts[i].x + (self.parts[i].y * XRES as u16);
 				self.pmap[index as usize] = Some(i);
 				counter += 1;
 			}
@@ -132,24 +119,32 @@ impl Simulation {
 				break;
 			}
 
-			let p_type = self.parts[i].get_type();
+			let p_type = (*self.parts[i].get_type(&self.element_manager)).clone();
 			if self.parts[i].p_type != 0 {
 				match p_type.behaviour {
-					PartBehaviour::Skip => {}
-					PartBehaviour::Solid => {
-						(p_type.update)(&mut self.parts[i]);
+					ElementBehaviour::Skip => {}
+					ElementBehaviour::Solid => {
+						if let Some(update) = p_type.update {
+							(update)(&mut self.parts[i])
+						}
 					}
-					PartBehaviour::Powder => {
+					ElementBehaviour::Powder => {
 						self.powder_move(i);
-						(p_type.update)(&mut self.parts[i]);
+						if let Some(update) = p_type.update {
+							(update)(&mut self.parts[i])
+						}
 					}
-					PartBehaviour::Fluid => {
+					ElementBehaviour::Fluid => {
 						self.liquid_move(i);
-						(p_type.update)(&mut self.parts[i]);
+						if let Some(update) = p_type.update {
+							(update)(&mut self.parts[i])
+						}
 					}
-					PartBehaviour::Gas => {
-						// TODO uhh make tis xd
-						(p_type.update)(&mut self.parts[i]);
+					ElementBehaviour::Gas => {
+						// TODO uhh make this
+						if let Some(update) = p_type.update {
+							(update)(&mut self.parts[i])
+						}
 					}
 				}
 
@@ -211,7 +206,11 @@ impl Simulation {
 			if self.parts[occupying].p_type == 0 {
 				print!("s");
 			}
-			if swap && self.parts[occupying].get_type().density < self.parts[i].get_type().density {
+			if swap &&
+				self.parts[occupying]
+					.get_type(&self.element_manager)
+					.density < self.parts[i].get_type(&self.element_manager).density
+			{
 				// SWAP
 				let (ox, oy) = (self.parts[occupying].x, self.parts[occupying].y);
 				self.pmap[x as usize + y as usize * XRES] = Some(occupying);
@@ -229,8 +228,8 @@ impl Simulation {
 		self.pmap[nx as usize + ny as usize * XRES] = Some(i);
 		self.pmap[x as usize + y as usize * XRES] = None;
 
-		self.parts[i].x = nx as u32;
-		self.parts[i].y = ny as u32;
+		self.parts[i].x = nx as u16;
+		self.parts[i].y = ny as u16;
 		return true;
 	}
 }

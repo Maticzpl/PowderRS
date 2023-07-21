@@ -1,15 +1,13 @@
-use crate::types::*;
+use crate::simulation::elements::Element;
+use crate::simulation::elements::ElementBehaviour::Fluid;
 
-use crate::types::PartBehaviour::Fluid;
-
-pub const PT_WATR : PartType = PartType {
-    id: 3,
-    name: "WATR",
-    col: [0,0,255],
-    behaviour: Fluid,
-    density: 5,
-    graphics: no_gfx,
-    update: no_update,
+pub const EL_WATR: Element = Element {
+	id:        3,
+	name:      "WATR",
+	col:       [0, 0, 255, 200],
+	behaviour: Fluid,
+	density:   5,
+	update:    None
 };
 
 // pub fn gfx(sim : &Simulation, pt : &Particle) -> Color{

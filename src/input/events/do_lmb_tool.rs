@@ -5,7 +5,8 @@ use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState};
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::sim::{Particle, Simulation};
+use crate::simulation::sim::Simulation;
+use crate::simulation::Particle;
 
 pub struct DoLmbTool {}
 
@@ -37,8 +38,13 @@ impl InputEvent for DoLmbTool {
 			// TODO: actual tools instead of hardcoded stuff, same for RMB
 			sim.add_part(Particle {
 				p_type: 2,
-				x:      (x - hs + i / size) as u32,
-				y:      (y - hs + i % size) as u32
+				prop1: 0,
+				prop2: 0,
+				prop3: 0,
+				x:      (x - hs + i / size) as u16,
+				y:      (y - hs + i % size) as u16,
+				vx: 0,
+				vy: 0,
 			});
 		}
 	}

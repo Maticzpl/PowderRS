@@ -18,7 +18,7 @@ use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
 use crate::rendering::render_utils::core::Core;
 use crate::rendering::render_utils::pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
 use crate::rendering::render_utils::vertex_type::VertexType;
-use crate::sim::{WINH, WINW};
+use crate::simulation::sim::{WINH, WINW};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]

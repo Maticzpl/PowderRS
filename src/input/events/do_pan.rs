@@ -7,7 +7,7 @@ use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState, LogicalOperator};
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::sim::Simulation;
+use crate::simulation::sim::Simulation;
 
 pub struct DoPan {
 	pan_started:   Cell<bool>, // Uh oh
