@@ -5,14 +5,8 @@ pub mod pipeline;
 pub mod texture;
 pub mod vertex_type;
 
+pub use pipeline::{Pipeline, PipelineDescriptor, Shader, ShaderType};
+pub use texture::Texture;
+pub use vertex_type::VertexType;
 
 pub use self::core::Core;
-
-pub use pipeline::Pipeline;
-pub use pipeline::PipelineDescriptor;
-pub use pipeline::Shader;
-pub use pipeline::ShaderType;
-
-pub use texture::Texture;
-
-pub use vertex_type::VertexType;

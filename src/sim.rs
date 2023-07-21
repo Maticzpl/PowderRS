@@ -10,7 +10,7 @@ pub const XYRES: usize = XRES * YRES;
 pub const PT_EMPTY: Particle = Particle {
 	p_type: PT_NONE.id,
 	x:      0,
-	y:      0,
+	y:      0
 };
 
 #[repr(C)]
@@ -18,7 +18,7 @@ pub const PT_EMPTY: Particle = Particle {
 pub struct Particle {
 	pub p_type: u32,
 	pub x:      u32,
-	pub y:      u32,
+	pub y:      u32
 }
 impl Particle {
 	pub fn get_type(&self) -> PartType {
@@ -30,7 +30,7 @@ pub struct Simulation {
 	pub parts:  Box<[Particle]>,
 	pub pmap:   Box<[Option<usize>]>,
 	pub paused: bool,
-	part_count: usize,
+	part_count: usize
 }
 impl Simulation {
 	pub fn new() -> Self {
@@ -41,7 +41,7 @@ impl Simulation {
 			parts:      p,
 			pmap:       pm,
 			paused:     false,
-			part_count: 0,
+			part_count: 0
 		}
 	}
 
@@ -168,7 +168,8 @@ impl Simulation {
 		}
 		if ran {
 			self.try_move(id, 1, 1, true);
-		} else {
+		}
+		else {
 			self.try_move(id, -1, 1, true);
 		}
 	}
@@ -184,12 +185,14 @@ impl Simulation {
 			if self.try_move(id, 1, 1, false) {
 				return;
 			}
-		} else if self.try_move(id, -1, 1, false) {
+		}
+		else if self.try_move(id, -1, 1, false) {
 			return;
 		}
 		if ran {
 			self.try_move(id, 1, 0, false);
-		} else {
+		}
+		else {
 			self.try_move(id, -1, 0, false);
 		}
 	}

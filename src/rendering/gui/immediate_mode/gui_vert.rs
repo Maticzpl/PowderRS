@@ -6,7 +6,7 @@ use crate::rendering::render_utils::vertex_type::VertexType;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GUIVert {
 	pub pos:   [f32; 2],
-	pub color: [f32; 4],
+	pub color: [f32; 4]
 }
 
 impl VertexType<2> for GUIVert {

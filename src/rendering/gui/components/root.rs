@@ -7,7 +7,7 @@ use crate::rendering::gui::components::{Component, ComponentAlignment};
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 
 pub struct Root {
-	children: Vec<Rc<RefCell<dyn Component>>>,
+	children: Vec<Rc<RefCell<dyn Component>>>
 }
 
 impl Root {

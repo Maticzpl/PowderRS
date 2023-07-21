@@ -11,14 +11,14 @@ pub struct Core {
 	pub surface_format: wgpu::TextureFormat,
 	pub device:         wgpu::Device,
 	pub config:         wgpu::SurfaceConfiguration,
-	pub queue:          wgpu::Queue,
+	pub queue:          wgpu::Queue
 }
 
 impl Core {
 	pub async fn new(
 		title: &str,
 		window_size: PhysicalSize<u32>,
-		event_loop: &EventLoop<()>,
+		event_loop: &EventLoop<()>
 	) -> Self {
 		cfg_if::cfg_if! {
 			if #[cfg(target_arch = "wasm32")] {
@@ -31,7 +31,7 @@ impl Core {
 
 		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
 			backends:             wgpu::Backends::all(),
-			dx12_shader_compiler: Default::default(),
+			dx12_shader_compiler: Default::default()
 		});
 
 		let window = WindowBuilder::new().build(event_loop).unwrap();
@@ -58,7 +58,7 @@ impl Core {
 			.request_adapter(&wgpu::RequestAdapterOptions {
 				power_preference:       wgpu::PowerPreference::HighPerformance,
 				compatible_surface:     Some(&surface),
-				force_fallback_adapter: false,
+				force_fallback_adapter: false
 			})
 			.await
 			.unwrap();
@@ -68,7 +68,7 @@ impl Core {
 			wgpu::DeviceType::IntegratedGpu => "Integrated GPU",
 			wgpu::DeviceType::DiscreteGpu => "Discrete GPU",
 			wgpu::DeviceType::VirtualGpu => "Virtual GPU",
-			wgpu::DeviceType::Cpu => "CPU",
+			wgpu::DeviceType::Cpu => "CPU"
 		};
 
 		log::info!(
@@ -85,12 +85,13 @@ impl Core {
 					features: wgpu::Features::empty(),
 					limits:   if cfg!(target_arch = "wasm32") {
 						wgpu::Limits::downlevel_webgl2_defaults()
-					} else {
+					}
+					else {
 						wgpu::Limits::default()
 					},
-					label:    None,
+					label:    None
 				},
-				None,
+				None
 			)
 			.await
 			.unwrap();
@@ -110,7 +111,7 @@ impl Core {
 			height:       window_size.height,
 			present_mode: wgpu::PresentMode::AutoNoVsync,
 			alpha_mode:   surface_caps.alpha_modes[0], // wgpu::CompositeAlphaMode::PreMultiplied,
-			view_formats: vec![],
+			view_formats: vec![]
 		};
 		surface.configure(&device, &config);
 
@@ -122,7 +123,7 @@ impl Core {
 			surface_format,
 			device,
 			queue,
-			config,
+			config
 		}
 	}
 }

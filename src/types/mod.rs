@@ -16,7 +16,7 @@ pub enum PartBehaviour {
 	Solid,
 	Powder,
 	Fluid,
-	Gas,
+	Gas
 }
 
 #[derive(Copy, Clone)]
@@ -27,7 +27,7 @@ pub struct PartType {
 	pub behaviour: PartBehaviour,
 	pub density:   u16,
 	pub update:    fn(pt: &mut Particle),
-	pub graphics:  fn(sim: &Simulation, pt: &Particle) -> [u8; 3],
+	pub graphics:  fn(sim: &Simulation, pt: &Particle) -> [u8; 3]
 }
 impl PartType {
 	fn find(name: &str) -> usize {

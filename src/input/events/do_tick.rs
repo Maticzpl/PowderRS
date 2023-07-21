@@ -18,22 +18,22 @@ impl InputEvent for DoTick {
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::F),
 				state:            KeyState::Pressed,
-				combine_previous: None,
+				combine_previous: None
 			},
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::V),
 				state:            KeyState::Pressed,
-				combine_previous: Some(LogicalOperator::Or),
+				combine_previous: Some(LogicalOperator::Or)
 			},
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::N),
 				state:            KeyState::Pressed,
-				combine_previous: Some(LogicalOperator::Or),
+				combine_previous: Some(LogicalOperator::Or)
 			},
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::J),
 				state:            KeyState::Pressed,
-				combine_previous: Some(LogicalOperator::Or),
+				combine_previous: Some(LogicalOperator::Or)
 			},
 		]
 	}
@@ -43,7 +43,7 @@ impl InputEvent for DoTick {
 		sim: &mut Simulation,
 		_ren: &mut Renderer,
 		_gui: &mut GameGUI,
-		_input: &mut InputData,
+		_input: &mut InputData
 	) {
 		sim.step();
 	}

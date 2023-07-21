@@ -16,7 +16,7 @@ use crate::rendering::renderer::Renderer;
 use crate::sim::Simulation;
 
 pub struct InputEventInvoker {
-	events: Vec<Box<dyn InputEvent>>,
+	events: Vec<Box<dyn InputEvent>>
 }
 
 impl InputEventInvoker {
@@ -32,7 +32,7 @@ impl InputEventInvoker {
 				Box::from(DoZoom {}),
 				Box::from(DoCameraCenter {}),
 				Box::from(DoBrushSize {}),
-			],
+			]
 		}
 	}
 
@@ -50,7 +50,7 @@ impl InputEventInvoker {
 		sim: &mut Simulation,
 		ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		for event in self.events.as_slice() {
 			let mut previous: Option<bool> = None;
@@ -62,14 +62,14 @@ impl InputEventInvoker {
 						KeyState::Pressed => input.key_just_pressed(&keycode),
 						KeyState::Held => input.key_pressed(&keycode),
 						KeyState::Released => input.key_just_released(&keycode),
-						KeyState::NotHeld => !input.key_pressed(&keycode),
+						KeyState::NotHeld => !input.key_pressed(&keycode)
 					},
 					AnyKey::Mouse(button) => match key.state {
 						KeyState::Pressed => input.mouse_just_pressed(&button),
 						KeyState::Held => input.mouse_pressed(&button),
 						KeyState::Released => input.mouse_just_released(&button),
-						KeyState::NotHeld => !input.mouse_pressed(&button),
-					},
+						KeyState::NotHeld => !input.mouse_pressed(&button)
+					}
 				};
 
 				if let Some(state) = previous {
@@ -78,7 +78,8 @@ impl InputEventInvoker {
 						Some(LogicalOperator::Or) => previous = Some(state || triggered),
 						_ => {}
 					}
-				} else {
+				}
+				else {
 					previous = Some(triggered);
 					if key.combine_previous.is_some() {
 						warn!(

@@ -8,5 +8,5 @@ pub const PT_DUST: PartType = PartType {
 	behaviour: Powder,
 	density:   10,
 	graphics:  no_gfx,
-	update:    no_update,
+	update:    no_update
 };

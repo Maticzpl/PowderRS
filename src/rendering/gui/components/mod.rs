@@ -60,7 +60,7 @@ pub struct ComponentBase {
 	alignment:   ComponentAlignment,
 
 	parent:   Weak<RefCell<dyn Component>>,
-	children: Vec<Rc<RefCell<dyn Component>>>,
+	children: Vec<Rc<RefCell<dyn Component>>>
 }
 
 impl ComponentBase {
@@ -71,7 +71,7 @@ impl ComponentBase {
 			user_offset: Vector2::zero(),
 			children: vec![],
 			parent,
-			alignment: ComponentAlignment::LeftTop,
+			alignment: ComponentAlignment::LeftTop
 		}
 	}
 }

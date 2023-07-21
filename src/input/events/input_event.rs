@@ -13,17 +13,17 @@ pub enum KeyState {
 	Pressed,
 	Held,
 	Released,
-	NotHeld,
+	NotHeld
 }
 
 pub enum LogicalOperator {
 	And,
-	Or,
+	Or
 }
 
 pub enum AnyKey {
 	Keyboard(VirtualKeyCode),
-	Mouse(MouseButton),
+	Mouse(MouseButton)
 }
 
 /// Describes a single key required to trigger an input event  
@@ -32,7 +32,7 @@ pub enum AnyKey {
 pub struct KeyEvent {
 	pub key:              AnyKey,
 	pub state:            KeyState,
-	pub combine_previous: Option<LogicalOperator>,
+	pub combine_previous: Option<LogicalOperator>
 }
 
 pub trait InputEvent {
@@ -43,6 +43,6 @@ pub trait InputEvent {
 		sim: &mut Simulation,
 		ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	);
 }

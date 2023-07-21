@@ -6,7 +6,7 @@ use instant::Instant;
 use wgpu::util::DeviceExt;
 use wgpu::{
 	include_wgsl, ImageCopyTexture, ImageDataLayout, Origin3d, ShaderStages, TextureAspect,
-	TextureFormat, TextureUsages,
+	TextureFormat, TextureUsages
 };
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
@@ -15,11 +15,12 @@ use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::render_utils;
 use crate::rendering::render_utils::VertexType;
 use crate::rendering::texture_data::TextureData;
+use crate::rendering::timing::Timing;
 use crate::rendering::vert::Vert;
 use crate::sim::{Simulation, WINH, WINW, XRES, YRES};
 
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
-	1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
+	1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0
 );
 
 // At 0 it's 1 gui pixel = 1 sim pixel at default camera pos and zoom
@@ -32,7 +33,7 @@ struct Uniforms {
 	gui_mat: [[f32; 4]; 4],
 	z:       f32,
 	grid:    u32,
-	padding: f64, /* Buffer is bound with size 136 where the shader expects 144 in group[0] compact index 0 */
+	padding: f64 /* Buffer is bound with size 136 where the shader expects 144 in group[0] compact index 0 */
 }
 
 pub struct Renderer {
@@ -41,11 +42,7 @@ pub struct Renderer {
 	screen_texture:     render_utils::Texture,
 	gui_texture:        render_utils::Texture,
 
-	frame_start: Instant,
-	timers:      [Instant; 4],
-	perf_sum:    [u128; 3],
-	fps_sum:     f64,
-	samples:     u32,
+	pub timings: Timing,
 
 	window_scale_factor: Vector2<f32>, // TODO: maybe find a better name
 	camera_zoom:         f32,
@@ -53,7 +50,7 @@ pub struct Renderer {
 
 	proj_matrix:  Matrix4<f32>,
 	view_matrix:  Matrix4<f32>,
-	model_matrix: Matrix4<f32>,
+	model_matrix: Matrix4<f32>
 }
 
 impl Renderer {
@@ -62,7 +59,7 @@ impl Renderer {
 		let rendering_core = render_utils::Core::new(
 			"PowderRS",
 			PhysicalSize::new(WINW as u32, WINH as u32),
-			&event_loop,
+			&event_loop
 		)
 		.await;
 		rendering_core.window.set_resizable(true);
@@ -73,42 +70,42 @@ impl Renderer {
 		let square: &[Vert] = &[
 			Vert {
 				pos:        [-w, h],
-				tex_coords: [0f32, 1f32],
+				tex_coords: [0f32, 1f32]
 			},
 			Vert {
 				pos:        [w, h],
-				tex_coords: [1f32, 1f32],
+				tex_coords: [1f32, 1f32]
 			},
 			Vert {
 				pos:        [w, -h],
-				tex_coords: [1f32, 0f32],
+				tex_coords: [1f32, 0f32]
 			},
 			Vert {
 				pos:        [-w, -h],
-				tex_coords: [0f32, 0f32],
+				tex_coords: [0f32, 0f32]
 			},
 			// This needs to be duplicated for GUI
 			Vert {
 				pos:        [-w, h],
-				tex_coords: [2f32, 1f32],
+				tex_coords: [2f32, 1f32]
 			},
 			Vert {
 				pos:        [w, h],
-				tex_coords: [3f32, 1f32],
+				tex_coords: [3f32, 1f32]
 			},
 			Vert {
 				pos:        [w, -h],
-				tex_coords: [3f32, 0f32],
+				tex_coords: [3f32, 0f32]
 			},
 			Vert {
 				pos:        [-w, -h],
-				tex_coords: [2f32, 0f32],
-			},
+				tex_coords: [2f32, 0f32]
+			}
 		];
 
 		let square_ind: &[u32] = &[
 			0, 1, 2, 0, 2, 3, // SIM rect
-			4, 5, 6, 4, 6, 7, // GUI rect
+			4, 5, 6, 4, 6, 7 // GUI rect
 		];
 
 		let vertex_buffer =
@@ -117,7 +114,7 @@ impl Renderer {
 				.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 					label:    Some("Vertex Buffer"),
 					contents: bytemuck::cast_slice(square),
-					usage:    wgpu::BufferUsages::VERTEX,
+					usage:    wgpu::BufferUsages::VERTEX
 				});
 
 		let index_buffer =
@@ -126,7 +123,7 @@ impl Renderer {
 				.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 					label:    Some("Index Buffer"),
 					contents: bytemuck::cast_slice(square_ind),
-					usage:    wgpu::BufferUsages::INDEX,
+					usage:    wgpu::BufferUsages::INDEX
 				});
 
 		let shader = rendering_core
@@ -136,7 +133,7 @@ impl Renderer {
 		let texture_size = wgpu::Extent3d {
 			width: WINW as u32,
 			height: WINH as u32,
-			depth_or_array_layers: 1,
+			depth_or_array_layers: 1
 		};
 
 		let screen_texture = render_utils::Texture::new(
@@ -145,7 +142,7 @@ impl Renderer {
 			TextureFormat::Rgba8UnormSrgb, // TODO: Make sure im doing srgb correctly
 			TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
 			ShaderStages::FRAGMENT,
-			"Screen",
+			"Screen"
 		);
 
 		let gui_texture = render_utils::Texture::new(
@@ -153,21 +150,21 @@ impl Renderer {
 			wgpu::Extent3d {
 				width: (WINW as f32 / (1.0 + GUI_PIXELATION)) as u32,
 				height: (WINH as f32 / (1.0 + GUI_PIXELATION)) as u32,
-				depth_or_array_layers: 1,
+				depth_or_array_layers: 1
 			},
-			TextureFormat::Bgra8UnormSrgb,
-			TextureUsages::TEXTURE_BINDING
-				| TextureUsages::COPY_DST
-				| TextureUsages::RENDER_ATTACHMENT,
+			rendering_core.surface_format, // TextureFormat::Rgba8UnormSrgb,
+			TextureUsages::TEXTURE_BINDING |
+				TextureUsages::COPY_DST |
+				TextureUsages::RENDER_ATTACHMENT,
 			ShaderStages::FRAGMENT,
-			"GUI",
+			"GUI"
 		);
 
 		let proj_matrix: Matrix4<f32> = cgmath::ortho(-w, w, h, -h, -1.0, 1.0);
 		let model_matrix: Matrix4<f32> = Matrix4::from_nonuniform_scale(
 			XRES as f32 / WINW as f32,
 			YRES as f32 / WINH as f32,
-			1.0,
+			1.0
 		);
 
 		let temp_val = Uniforms {
@@ -175,19 +172,19 @@ impl Renderer {
 			gui_mat: (proj_matrix * model_matrix * OPENGL_TO_WGPU_MATRIX).into(),
 			z:       0.0,
 			grid:    0,
-			padding: 0f64,
+			padding: 0f64
 		};
 
 		let vertex_desc = &[Vert::description()];
 		let vert = render_utils::Shader {
 			module:      &shader,
 			entry:       "vs_main",
-			shader_type: render_utils::ShaderType::Vertex(vertex_desc),
+			shader_type: render_utils::ShaderType::Vertex(vertex_desc)
 		};
 		let frag = render_utils::Shader {
 			module:      &shader,
 			entry:       "fs_main",
-			shader_type: render_utils::ShaderType::Fragment,
+			shader_type: render_utils::ShaderType::Fragment
 		};
 
 		let pipeline = render_utils::Pipeline::new(render_utils::PipelineDescriptor {
@@ -206,7 +203,7 @@ impl Renderer {
 				screen_texture.bind_group_layout.clone(),
 				gui_texture.bind_group_layout.clone(),
 			],
-			format:           rendering_core.surface_format,
+			format:           rendering_core.surface_format
 		});
 
 		(
@@ -225,35 +222,22 @@ impl Renderer {
 				view_matrix: Matrix4::identity(),
 				model_matrix,
 
-				frame_start: Instant::now(),
-				timers: [Instant::now(); 4],
-				fps_sum: 0.0,
-				samples: 0,
-				perf_sum: [0; 3],
+				timings: Timing::new()
 			},
-			event_loop,
+			event_loop
 		)
 	}
 	pub fn render(
 		&mut self,
 		sim: &Simulation,
-		gui: &mut GameGUI,
+		gui: &mut GameGUI
 	) -> Result<(), wgpu::SurfaceError> {
-		// FPS counter
-		let dt = self.frame_start.elapsed().as_micros();
+		let dt = self.timings.time_since_frame.elapsed().as_micros();
+		let mut display = gui.fps_display.borrow_mut();
+		display.fps = 1000000f64 / dt as f64;
 
-		self.fps_sum += 1000000f64 / dt as f64;
-		self.samples += 1;
-
-		gui.fps_display.borrow_mut().fps = self.fps_sum as f32 / self.samples as f32;
-
-		if self.timers[0].elapsed().as_millis() >= 1000 {
-			self.perf_sum = [0; 3];
-			self.fps_sum = 0.0;
-			self.samples = 0;
-			self.timers[0] = Instant::now();
-		}
-		self.frame_start = Instant::now();
+		self.timings.time_since_frame = Instant::now();
+		drop(display);
 
 		let core = self.rendering_core.borrow();
 
@@ -275,20 +259,19 @@ impl Renderer {
 
 		self.view_matrix = view_matrix;
 		let unifs = Uniforms {
-			mat:     (OPENGL_TO_WGPU_MATRIX
-				* self.proj_matrix
-				* self.view_matrix
-				* self.model_matrix)
+			mat:     (OPENGL_TO_WGPU_MATRIX *
+				self.proj_matrix * self.view_matrix *
+				self.model_matrix)
 				.into(),
 			gui_mat: (OPENGL_TO_WGPU_MATRIX * self.proj_matrix).into(),
 			z:       0.0,
 			grid:    gui.grid_size,
-			padding: 0f64,
+			padding: 0f64
 		};
 		core.queue.write_buffer(
 			&self.pipeline.uniform_buffer,
 			0,
-			bytemuck::cast_slice(&[unifs]),
+			bytemuck::cast_slice(&[unifs])
 		);
 
 		// Generate texture
@@ -304,7 +287,7 @@ impl Renderer {
 				tex_data.set_pixel(
 					pt.x as usize,
 					pt.y as usize,
-					(col[0], col[1], col[2], pt.p_type as u8),
+					(col[0], col[1], col[2], pt.p_type as u8)
 				);
 				counter += 1;
 			}
@@ -317,15 +300,15 @@ impl Renderer {
 				texture:   &self.screen_texture.texture,
 				aspect:    TextureAspect::All,
 				origin:    Origin3d::ZERO,
-				mip_level: 0,
+				mip_level: 0
 			},
 			tex_data.as_slice(),
 			ImageDataLayout {
 				offset:         0,
 				bytes_per_row:  Some(4 * self.screen_texture.size.width),
-				rows_per_image: Some(self.screen_texture.size.height),
+				rows_per_image: Some(self.screen_texture.size.height)
 			},
-			self.screen_texture.size,
+			self.screen_texture.size
 		);
 
 		// WGPU stuff This is a bit messy, well that's the price you pay not using unsafe rust :P
@@ -338,7 +321,7 @@ impl Renderer {
 		let mut encoder = core
 			.device
 			.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-				label: Some("Render Encoder"),
+				label: Some("Render Encoder")
 			});
 
 		let view = self.pipeline.create_window_view(&core)?;
@@ -389,12 +372,12 @@ impl Renderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4)
 			);
 			tex_data.set_pixel(
 				rx,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.4),
+				Renderer::blend_colors(tex_data.get_pixel(rx, y), (255, 255, 255, 128), 0.4)
 			);
 		}
 		for i in 1..width - 1 {
@@ -404,12 +387,12 @@ impl Renderer {
 			tex_data.set_pixel(
 				x,
 				y,
-				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4),
+				Renderer::blend_colors(tex_data.get_pixel(x, y), (255, 255, 255, 128), 0.4)
 			);
 			tex_data.set_pixel(
 				x,
 				ry,
-				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.4),
+				Renderer::blend_colors(tex_data.get_pixel(x, ry), (255, 255, 255, 128), 0.4)
 			);
 		}
 	}

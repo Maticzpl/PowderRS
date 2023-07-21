@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::thread::sleep;
-use std::time::Duration;
 
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use instant::Instant;
@@ -30,7 +28,7 @@ pub struct InputData {
 
 	pub mouse_pos_vector: Vector4<f32>,
 	pub mouse_screen_pos: Vector4<f32>,
-	pub cursor_pos:       Vector2<usize>, // clamped mouse pos vector
+	pub cursor_pos:       Vector2<usize> // clamped mouse pos vector
 }
 
 impl InputData {
@@ -53,35 +51,14 @@ impl InputData {
 		self.mouse_buttons.get(button).is_none() && self.prev_mouse_buttons.get(button).is_some()
 	}
 }
-fn tick(ren: &mut Renderer, gui: &mut GameGUI) {
-	let mut display = gui.fps_display.borrow_mut();
-	let dt = display.time_since_tick.elapsed().as_micros();
-	let tps = 1000000f64 / dt as f64;
-	display.time_since_tick = Instant::now();
 
-	// draw cap
-	if display.time_since_frame.elapsed().as_micros() > (1000000 / 65) {
-		display.tps = tps as f32;
-		let core = ren.rendering_core.borrow();
-		core.window.request_redraw();
-
-		let time_left = Duration::from_micros(1000000 / 60).as_micros() as i128
-			- display.time_since_frame.elapsed().as_micros() as i128
-			- 54i128;
-
-		if time_left > 0 {
-			sleep(Duration::from_micros(time_left as u64));
-		}
-		display.time_since_frame = Instant::now();
-	}
-}
 pub fn handle_events(
 	event_loop: EventLoop<()>,
 	mut input: InputData,
 	mut sim: Simulation,
 	mut ren: Renderer,
 	mut gui: GameGUI<'static>,
-	rendering_core: Rc<RefCell<Core>>,
+	rendering_core: Rc<RefCell<Core>>
 ) {
 	let invoker = InputEventInvoker::new();
 
@@ -104,7 +81,8 @@ pub fn handle_events(
 					WindowEvent::MouseInput { button, state, .. } => {
 						if state == Pressed {
 							input.mouse_buttons.insert(button, true);
-						} else {
+						}
+						else {
 							input.mouse_buttons.remove(&button);
 						}
 					}
@@ -138,7 +116,8 @@ pub fn handle_events(
 						// println!("{:?} k-s {}",key,_scan);
 						if state == Pressed {
 							input.keys.insert(key, true);
-						} else {
+						}
+						else {
 							input.keys.remove(&key);
 						}
 					}
@@ -156,7 +135,7 @@ pub fn handle_events(
 					Ok(_) => {}
 					Err(wgpu::SurfaceError::Lost) => ren.resize(size),
 					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
-					Err(e) => error!("{:?}", e),
+					Err(e) => error!("{:?}", e)
 				}
 			}
 			Event::MainEventsCleared => {
@@ -170,18 +149,18 @@ pub fn handle_events(
 					x: input.mouse_pos.x as f32,
 					y: input.mouse_pos.y as f32,
 					z: 0.0,
-					w: 1.0,
+					w: 1.0
 				};
 				let scale_factor = Vector2::new(
 					win_size.width as f32 / WINW as f32,
-					win_size.height as f32 / WINH as f32,
+					win_size.height as f32 / WINH as f32
 				);
 
 				input.mouse_screen_pos = Vector4 {
 					x: mouse_pos.x / scale_factor.x,
 					y: mouse_pos.y / scale_factor.y,
 					z: 0.0,
-					w: 1.0,
+					w: 1.0
 				};
 
 				#[rustfmt::skip]
@@ -215,21 +194,32 @@ pub fn handle_events(
 				gui.cursor = Rect {
 					min: Point {
 						x: (cursor_x - hs) as f32,
-						y: (cursor_y - hs) as f32,
+						y: (cursor_y - hs) as f32
 					},
 					max: Point {
 						x: (cursor_x - hs) as f32 + gui.brush_size as f32,
-						y: (cursor_y - hs) as f32 + gui.brush_size as f32,
-					},
+						y: (cursor_y - hs) as f32 + gui.brush_size as f32
+					}
 				};
 
 				input.scroll = 0.0;
 
-				tick(&mut ren, &mut gui);
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
+
+				let dt = ren.timings.time_since_tick.elapsed().as_micros();
+				ren.timings.time_since_tick = Instant::now();
+				let tps = 1000000f64 / dt as f64;
+
+				let mut display = gui.fps_display.borrow_mut();
+				// draw cap
+				if ren.timings.time_since_frame.elapsed().as_micros() + dt > (1000000 / 60) {
+					display.tps = tps;
+					let core = ren.rendering_core.borrow();
+					core.window.request_redraw();
+				}
 			}
-			_ => *flow = ControlFlow::Poll,
+			_ => *flow = ControlFlow::Poll
 		}
 	});
 }

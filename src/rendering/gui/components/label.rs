@@ -16,7 +16,7 @@ pub struct Label {
 	font_size:   f32,
 	color:       Color,
 	font_id:     FontId,
-	text_bounds: Bounds,
+	text_bounds: Bounds
 }
 
 impl Label {
@@ -28,7 +28,7 @@ impl Label {
 		bounds: Bounds,
 		offset: Vector2<f32>,
 		gui: &mut ImmediateGUI,
-		parent: Weak<RefCell<dyn Component>>,
+		parent: Weak<RefCell<dyn Component>>
 	) -> Self {
 		let mut base = ComponentBase::new(parent);
 
@@ -44,7 +44,7 @@ impl Label {
 			font_size,
 			color,
 			font_id,
-			text_bounds: bounds,
+			text_bounds: bounds
 		}
 	}
 
@@ -52,7 +52,7 @@ impl Label {
 		text: &str,
 		font_size: f32,
 		bounds: Bounds,
-		gui: &mut ImmediateGUI,
+		gui: &mut ImmediateGUI
 	) -> (Vector2<f32>, Vector2<f32>) {
 		let mut out_size = Vector2::zero();
 		let mut offset = Vector2::zero();
@@ -64,18 +64,18 @@ impl Label {
 			Bounds::Box {
 				size,
 				h_align,
-				v_align,
+				v_align
 			} => {
 				match h_align {
 					HorizontalAlign::Left => offset.x = 0.0,
 					HorizontalAlign::Center => offset.x = size.x / 2.0,
-					HorizontalAlign::Right => offset.x = size.x,
+					HorizontalAlign::Right => offset.x = size.x
 				}
 
 				match v_align {
 					VerticalAlign::Top => offset.y = 0.0,
 					VerticalAlign::Center => offset.y = size.y / 2.0,
-					VerticalAlign::Bottom => offset.y = size.y,
+					VerticalAlign::Bottom => offset.y = size.y
 				}
 
 				out_size = size;

@@ -12,7 +12,7 @@ use crate::sim::Simulation;
 pub struct DoPan {
 	pan_started:   Cell<bool>, // Uh oh
 	pan_start_pos: Cell<Vector2<f32>>,
-	pan_original:  Cell<Vector2<f32>>,
+	pan_original:  Cell<Vector2<f32>>
 }
 
 impl DoPan {
@@ -20,7 +20,7 @@ impl DoPan {
 		Self {
 			pan_started:   Cell::new(false),
 			pan_start_pos: Cell::new(Vector2::zero()),
-			pan_original:  Cell::new(Vector2::zero()),
+			pan_original:  Cell::new(Vector2::zero())
 		}
 	}
 }
@@ -35,12 +35,12 @@ impl InputEvent for DoPan {
 			KeyEvent {
 				key:              AnyKey::Mouse(MouseButton::Middle),
 				state:            KeyState::Held,
-				combine_previous: None,
+				combine_previous: None
 			},
 			KeyEvent {
 				key:              AnyKey::Mouse(MouseButton::Middle),
 				state:            KeyState::Released,
-				combine_previous: Some(LogicalOperator::Or),
+				combine_previous: Some(LogicalOperator::Or)
 			},
 		]
 	}
@@ -50,7 +50,7 @@ impl InputEvent for DoPan {
 		_sim: &mut Simulation,
 		ren: &mut Renderer,
 		_gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		// TODO: Fix slight misalignment while panning and window maximized
 		let mut pan_started = self.pan_started.get();
@@ -64,7 +64,8 @@ impl InputEvent for DoPan {
 				pan_start_pos = input.mouse_screen_pos.truncate().truncate();
 				pan_original = pan;
 				pan_started = true;
-			} else {
+			}
+			else {
 				let mut pan_change =
 					(input.mouse_screen_pos.truncate().truncate() - pan_start_pos) / ren.get_zoom();
 				pan_change.x *= ren.get_window_scale_factor().x;
@@ -77,7 +78,8 @@ impl InputEvent for DoPan {
 
 			self.pan_start_pos.set(pan_start_pos);
 			self.pan_original.set(pan_original);
-		} else {
+		}
+		else {
 			pan_started = false;
 		}
 

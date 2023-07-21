@@ -8,5 +8,5 @@ pub const PT_BRCK: PartType = PartType {
 	behaviour: Solid,
 	density:   20,
 	graphics:  no_gfx,
-	update:    no_update,
+	update:    no_update
 };

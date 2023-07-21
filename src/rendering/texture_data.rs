@@ -2,14 +2,14 @@ use cgmath::{vec2, Vector2};
 
 pub struct TextureData {
 	data: Vec<u8>,
-	size: Vector2<usize>,
+	size: Vector2<usize>
 }
 
 impl TextureData {
 	pub fn new(w: usize, h: usize) -> Self {
 		Self {
 			data: vec![0u8; w * h * 4],
-			size: vec2(w, h),
+			size: vec2(w, h)
 		}
 	}
 
@@ -20,7 +20,7 @@ impl TextureData {
 			self.data[pos],
 			self.data[pos + 1],
 			self.data[pos + 2],
-			self.data[pos + 3],
+			self.data[pos + 3]
 		)
 	}
 
@@ -31,7 +31,7 @@ impl TextureData {
 			self.data[pos],
 			self.data[pos + 1],
 			self.data[pos + 2],
-			self.data[pos + 3],
+			self.data[pos + 3]
 		) = val;
 	}
 

@@ -8,5 +8,5 @@ pub const PT_NONE: PartType = PartType {
 	behaviour: Skip,
 	density:   0,
 	graphics:  no_gfx,
-	update:    no_update,
+	update:    no_update
 };

@@ -6,12 +6,12 @@ use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use wgpu::util::{DeviceExt, StagingBelt};
 use wgpu::{
 	include_wgsl, BufferAddress, Color, CommandEncoder, RenderPass, SurfaceError, TextureView,
-	TextureViewDescriptor,
+	TextureViewDescriptor
 };
 use wgpu_glyph::ab_glyph::FontRef;
 use wgpu_glyph::{
 	BuiltInLineBreaker, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign,
-	Layout, Section, Text, VerticalAlign,
+	Layout, Section, Text, VerticalAlign
 };
 
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
@@ -23,7 +23,7 @@ use crate::sim::{WINH, WINW};
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct GUIUniforms {
-	transform: [[f32; 4]; 4],
+	transform: [[f32; 4]; 4]
 }
 
 #[derive(Copy, Clone)]
@@ -32,8 +32,8 @@ pub enum Bounds {
 	Box {
 		size:    Vector2<f32>,
 		h_align: HorizontalAlign,
-		v_align: VerticalAlign,
-	},
+		v_align: VerticalAlign
+	}
 }
 
 pub struct ImmediateGUI<'a> {
@@ -42,7 +42,7 @@ pub struct ImmediateGUI<'a> {
 	pipeline: Pipeline,
 	rendering_core: Rc<RefCell<Core>>,
 	pub belt: StagingBelt,
-	pub window_scale_ratio: Cell<Vector2<f32>>,
+	pub window_scale_ratio: Cell<Vector2<f32>>
 }
 
 impl ImmediateGUI<'_> {
@@ -71,20 +71,20 @@ impl ImmediateGUI<'_> {
 					vec![
 						GUIVert {
 							pos:   [0.0, 0.0],
-							color: [0.0, 0.0, 0.0, 0.0],
+							color: [0.0, 0.0, 0.0, 0.0]
 						};
 						TRIG_CAP
 					]
-					.as_slice(),
+					.as_slice()
 				),
-				usage:    wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+				usage:    wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
 			});
 		let index_buffer = core
 			.device
 			.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 				label:    Some("GUI Index Buffer"),
 				contents: bytemuck::cast_slice(vec![0u32; TRIG_CAP * 2].as_slice()),
-				usage:    wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+				usage:    wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
 			});
 
 		let shaders = core
@@ -94,12 +94,12 @@ impl ImmediateGUI<'_> {
 		let vert = Shader {
 			module:      &shaders,
 			entry:       "vs_main",
-			shader_type: ShaderType::Vertex(vertex_desc),
+			shader_type: ShaderType::Vertex(vertex_desc)
 		};
 		let frag = Shader {
 			module:      &shaders,
 			entry:       "fs_main",
-			shader_type: ShaderType::Fragment,
+			shader_type: ShaderType::Fragment
 		};
 
 		let gui_pipeline = Pipeline::new(PipelineDescriptor {
@@ -107,14 +107,14 @@ impl ImmediateGUI<'_> {
 			name:             "GUI",
 			shaders:          vec![vert, frag],
 			uniform_defaults: GUIUniforms {
-				transform: Matrix4::identity().into(),
+				transform: Matrix4::identity().into()
 			},
 			vert_buffer:      vertex_buffer,
 			vert_num:         0,
 			ind_buffer:       index_buffer,
 			bindings:         vec![],
 			bindings_layout:  vec![],
-			format:           core.surface_format,
+			format:           core.surface_format
 		})
 		.unwrap();
 
@@ -126,7 +126,7 @@ impl ImmediateGUI<'_> {
 			window_scale_ratio: Cell::new(Vector2::new(1.0, 1.0)),
 			pipeline: gui_pipeline,
 			belt: StagingBelt::new(1024),
-			rendering_core,
+			rendering_core
 		}
 	}
 
@@ -137,17 +137,17 @@ impl ImmediateGUI<'_> {
 		bounds: Bounds,
 		font_size: f32,
 		color: Option<Color>,
-		font: Option<FontId>,
+		font: Option<FontId>
 	) {
 		let color = match color {
 			Some(c) => c,
-			None => Color::WHITE,
+			None => Color::WHITE
 		};
 		let color = [
 			color.r as f32,
 			color.g as f32,
 			color.b as f32,
-			color.a as f32,
+			color.a as f32
 		]; // This is so stupid
 
 		let section = Section::default()
@@ -155,7 +155,7 @@ impl ImmediateGUI<'_> {
 				Text::new(text)
 					.with_scale(font_size * self.window_scale_ratio.get().y)
 					.with_color(color)
-					.with_font_id(font.unwrap_or(FontId(0))),
+					.with_font_id(font.unwrap_or(FontId(0)))
 			)
 			.with_screen_position((pos.x, pos.y));
 
@@ -163,20 +163,21 @@ impl ImmediateGUI<'_> {
 			Bounds::Box {
 				size,
 				h_align,
-				v_align,
+				v_align
 			} => (size, h_align, v_align),
 			Bounds::None => {
 				if let Some(size) = self.font.glyph_bounds(section.clone()) {
 					(
 						Vector2::new(size.width(), size.height()),
 						HorizontalAlign::Left,
-						VerticalAlign::Top,
+						VerticalAlign::Top
 					)
-				} else {
+				}
+				else {
 					(
 						Vector2::new(0f32, 0f32),
 						HorizontalAlign::Left,
-						VerticalAlign::Top,
+						VerticalAlign::Top
 					)
 				}
 			}
@@ -185,7 +186,7 @@ impl ImmediateGUI<'_> {
 		let layout = Layout::Wrap {
 			h_align,
 			v_align,
-			line_breaker: BuiltInLineBreaker::UnicodeLineBreaker,
+			line_breaker: BuiltInLineBreaker::UnicodeLineBreaker
 		};
 
 		self.font
@@ -210,8 +211,8 @@ impl ImmediateGUI<'_> {
 						color.r as f32,
 						color.g as f32,
 						color.b as f32,
-						color.a as f32,
-					],
+						color.a as f32
+					]
 				},
 				GUIVert {
 					pos:   (pos + w_only).into(),
@@ -219,8 +220,8 @@ impl ImmediateGUI<'_> {
 						color.r as f32,
 						color.g as f32,
 						color.b as f32,
-						color.a as f32,
-					],
+						color.a as f32
+					]
 				},
 				GUIVert {
 					pos:   (pos + size).into(),
@@ -228,8 +229,8 @@ impl ImmediateGUI<'_> {
 						color.r as f32,
 						color.g as f32,
 						color.b as f32,
-						color.a as f32,
-					],
+						color.a as f32
+					]
 				},
 				GUIVert {
 					pos:   (pos + h_only).into(),
@@ -237,10 +238,10 @@ impl ImmediateGUI<'_> {
 						color.r as f32,
 						color.g as f32,
 						color.b as f32,
-						color.a as f32,
-					],
-				},
-			]),
+						color.a as f32
+					]
+				}
+			])
 		);
 
 		let off = self.rect_num as usize * 6;
@@ -253,8 +254,8 @@ impl ImmediateGUI<'_> {
 				(vert_off + 2) as u32,
 				vert_off as u32,
 				(vert_off + 2) as u32,
-				(vert_off + 3) as u32,
-			]),
+				(vert_off + 3) as u32
+			])
 		);
 
 		self.rect_num += 1;
@@ -269,7 +270,7 @@ impl ImmediateGUI<'_> {
 			base_mip_level:    0,
 			mip_level_count:   None,
 			base_array_layer:  0,
-			array_layer_count: None,
+			array_layer_count: None
 		});
 
 		let core = self.rendering_core.borrow_mut();
@@ -277,7 +278,7 @@ impl ImmediateGUI<'_> {
 		let mut encoder = core
 			.device
 			.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-				label: Some("GUI Render Encoder"),
+				label: Some("GUI Render Encoder")
 			});
 		drop(core);
 
@@ -298,25 +299,25 @@ impl ImmediateGUI<'_> {
 
 		self.window_scale_ratio.set(Vector2::from([
 			w as f32 / WINW as f32,
-			h as f32 / WINH as f32,
+			h as f32 / WINH as f32
 		]));
 		self.pipeline.vert_num.set((self.rect_num * 6) as usize);
 
 		// Shapes transform
 		let transform = <Matrix4<f32> as Into<[[f32; 4]; 4]>>::into(
-			Matrix4::from_nonuniform_scale(2.0 / WINW as f32, -2.0 / WINH as f32, 1.0)
-				* Matrix4::from_translation(Vector3::from([
+			Matrix4::from_nonuniform_scale(2.0 / WINW as f32, -2.0 / WINH as f32, 1.0) *
+				Matrix4::from_translation(Vector3::from([
 					-(WINW as f32 / 2.0),
 					-(WINH as f32 / 2.0),
-					0.0,
-				])),
+					0.0
+				]))
 		);
 		let uniforms = GUIUniforms { transform };
 
 		core.queue.write_buffer(
 			&self.pipeline.uniform_buffer,
 			0,
-			bytemuck::cast_slice(&[uniforms]),
+			bytemuck::cast_slice(&[uniforms])
 		);
 
 		self.pipeline.draw(&mut render_pass);

@@ -18,7 +18,7 @@ impl InputEvent for DoCameraCenter {
 		vec![KeyEvent {
 			key:              AnyKey::Keyboard(VirtualKeyCode::L),
 			state:            KeyState::Pressed,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -27,7 +27,7 @@ impl InputEvent for DoCameraCenter {
 		_sim: &mut Simulation,
 		ren: &mut Renderer,
 		_gui: &mut GameGUI,
-		_input: &mut InputData,
+		_input: &mut InputData
 	) {
 		ren.set_pan(Vector2::zero());
 		ren.set_zoom(1.0);

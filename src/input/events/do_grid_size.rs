@@ -17,7 +17,7 @@ impl InputEvent for DoGridSize {
 		vec![KeyEvent {
 			key:              AnyKey::Keyboard(VirtualKeyCode::G),
 			state:            KeyState::Held,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -26,7 +26,7 @@ impl InputEvent for DoGridSize {
 		_sim: &mut Simulation,
 		_ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		if input.scroll != 0.0 {
 			if gui.grid_size == 0 {

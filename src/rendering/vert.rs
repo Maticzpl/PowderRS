@@ -6,7 +6,7 @@ use crate::rendering::render_utils::vertex_type::VertexType;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vert {
 	pub pos:        [f32; 2],
-	pub tex_coords: [f32; 2],
+	pub tex_coords: [f32; 2]
 }
 
 impl VertexType<2> for Vert {

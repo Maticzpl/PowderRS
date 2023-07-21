@@ -16,7 +16,7 @@ pub struct GameGUI<'a> {
 	pub brush_size:    u32,
 	pub gui_root:      Rc<RefCell<dyn Component>>,
 
-	pub fps_display: Rc<RefCell<FPSDisplay>>,
+	pub fps_display: Rc<RefCell<FPSDisplay>>
 }
 
 impl GameGUI<'_> {
@@ -35,7 +35,7 @@ impl GameGUI<'_> {
 			grid_size: 0,
 			cursor: Rect::default(),
 			brush_size: 5,
-			gui_root: root,
+			gui_root: root
 		}
 	}
 }

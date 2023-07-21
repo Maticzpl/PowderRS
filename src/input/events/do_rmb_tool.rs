@@ -18,7 +18,7 @@ impl InputEvent for DoRmbTool {
 		vec![KeyEvent {
 			key:              AnyKey::Mouse(MouseButton::Right),
 			state:            KeyState::Held,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -27,7 +27,7 @@ impl InputEvent for DoRmbTool {
 		sim: &mut Simulation,
 		_ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		let size = gui.brush_size as usize;
 		let hs = size / 2;

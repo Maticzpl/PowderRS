@@ -18,12 +18,12 @@ impl InputEvent for DoBrushSize {
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::LShift),
 				state:            KeyState::Held,
-				combine_previous: None,
+				combine_previous: None
 			},
 			KeyEvent {
 				key:              AnyKey::Keyboard(VirtualKeyCode::LShift),
 				state:            KeyState::NotHeld,
-				combine_previous: Some(LogicalOperator::Or),
+				combine_previous: Some(LogicalOperator::Or)
 			},
 		]
 	}
@@ -33,7 +33,7 @@ impl InputEvent for DoBrushSize {
 		_sim: &mut Simulation,
 		_ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		if input.scroll != 0.0 {
 			let mut speed = 1;

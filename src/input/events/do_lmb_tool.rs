@@ -18,7 +18,7 @@ impl InputEvent for DoLmbTool {
 		vec![KeyEvent {
 			key:              AnyKey::Mouse(MouseButton::Left),
 			state:            KeyState::Held,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -27,7 +27,7 @@ impl InputEvent for DoLmbTool {
 		sim: &mut Simulation,
 		_ren: &mut Renderer,
 		gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		let size = gui.brush_size as usize;
 		let hs = size / 2;
@@ -38,7 +38,7 @@ impl InputEvent for DoLmbTool {
 			sim.add_part(Particle {
 				p_type: 2,
 				x:      (x - hs + i / size) as u32,
-				y:      (y - hs + i % size) as u32,
+				y:      (y - hs + i % size) as u32
 			});
 		}
 	}

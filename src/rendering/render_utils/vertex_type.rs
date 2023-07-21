@@ -10,7 +10,7 @@ pub trait VertexType<const ATTRIB_NUM: usize>:
 		wgpu::VertexBufferLayout {
 			array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
 			step_mode:    wgpu::VertexStepMode::Vertex,
-			attributes:   &Self::ATTRIBS,
+			attributes:   &Self::ATTRIBS
 		}
 	}
 }

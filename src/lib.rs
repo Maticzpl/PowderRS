@@ -38,62 +38,62 @@ pub async fn run() {
 		scroll:             0.0,
 		mouse_pos_vector:   Vector4::zero(),
 		mouse_screen_pos:   Vector4::zero(),
-		cursor_pos:         Vector2::zero(),
+		cursor_pos:         Vector2::zero()
 	};
 
 	for i in 0..100 {
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      i + 20,
-			y:      i + 50,
+			y:      i + 50
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      i + 20,
-			y:      i + 80,
+			y:      i + 80
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      i + 120,
-			y:      i + 50,
+			y:      i + 50
 		});
 
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      i * 4,
-			y:      450,
+			y:      450
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      (i * 4) + 1,
-			y:      450,
+			y:      450
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      (i * 4) + 2,
-			y:      450,
+			y:      450
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      (i * 4) + 3,
-			y:      450,
+			y:      450
 		});
 
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      0,
-			y:      450 - i,
+			y:      450 - i
 		});
 		sim.add_part(Particle {
 			p_type: 1,
 			x:      400,
-			y:      450 - i,
+			y:      450 - i
 		});
 	}
 	sim.add_part(Particle {
 		p_type: 1,
 		x:      (WINW / 2) as u32,
-		y:      (WINH / 2) as u32,
+		y:      (WINH / 2) as u32
 	});
 
 	let rendering_core = ren.rendering_core.clone();

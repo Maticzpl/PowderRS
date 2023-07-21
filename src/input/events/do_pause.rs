@@ -17,7 +17,7 @@ impl InputEvent for DoPause {
 		vec![KeyEvent {
 			key:              AnyKey::Keyboard(VirtualKeyCode::Space),
 			state:            KeyState::Pressed,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -26,7 +26,7 @@ impl InputEvent for DoPause {
 		sim: &mut Simulation,
 		_ren: &mut Renderer,
 		_gui: &mut GameGUI,
-		_input: &mut InputData,
+		_input: &mut InputData
 	) {
 		sim.paused = !sim.paused;
 	}

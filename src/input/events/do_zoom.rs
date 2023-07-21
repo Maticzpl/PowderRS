@@ -18,7 +18,7 @@ impl InputEvent for DoZoom {
 		vec![KeyEvent {
 			key:              AnyKey::Keyboard(VirtualKeyCode::LControl),
 			state:            KeyState::Held,
-			combine_previous: None,
+			combine_previous: None
 		}]
 	}
 
@@ -27,7 +27,7 @@ impl InputEvent for DoZoom {
 		_sim: &mut Simulation,
 		ren: &mut Renderer,
 		_gui: &mut GameGUI,
-		input: &mut InputData,
+		input: &mut InputData
 	) {
 		if input.scroll != 0.0 {
 			let prev_zoom = ren.get_zoom();

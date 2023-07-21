@@ -7,7 +7,7 @@ pub struct Texture {
 
 	pub bind_group:        Rc<wgpu::BindGroup>,
 	pub bind_group_layout: Rc<wgpu::BindGroupLayout>,
-	pub size:              wgpu::Extent3d,
+	pub size:              wgpu::Extent3d
 }
 
 impl Texture {
@@ -17,7 +17,7 @@ impl Texture {
 		format: wgpu::TextureFormat,
 		usage: wgpu::TextureUsages,
 		visibility: wgpu::ShaderStages,
-		name: &str,
+		name: &str
 	) -> Self {
 		let texture = device.create_texture(&wgpu::TextureDescriptor {
 			size,
@@ -27,7 +27,7 @@ impl Texture {
 			format,
 			usage,
 			label: Some(&*format!("{} texture ", name)),
-			view_formats: &[],
+			view_formats: &[]
 		});
 		let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -50,18 +50,18 @@ impl Texture {
 						ty: wgpu::BindingType::Texture {
 							multisampled:   false,
 							view_dimension: wgpu::TextureViewDimension::D2,
-							sample_type:    wgpu::TextureSampleType::Float { filterable: false },
+							sample_type:    wgpu::TextureSampleType::Float { filterable: false }
 						},
-						count: None,
+						count: None
 					},
 					wgpu::BindGroupLayoutEntry {
 						binding: 1,
 						visibility,
 						ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-						count: None,
-					},
+						count: None
+					}
 				],
-				label:   Some(&*format!("{} texture bind group layout", name)),
+				label:   Some(&*format!("{} texture bind group layout", name))
 			});
 
 		let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -69,14 +69,14 @@ impl Texture {
 			entries: &[
 				wgpu::BindGroupEntry {
 					binding:  0,
-					resource: wgpu::BindingResource::TextureView(&texture_view),
+					resource: wgpu::BindingResource::TextureView(&texture_view)
 				},
 				wgpu::BindGroupEntry {
 					binding:  1,
-					resource: wgpu::BindingResource::Sampler(&sampler),
-				},
+					resource: wgpu::BindingResource::Sampler(&sampler)
+				}
 			],
-			label:   Some(&*format!("{} texture bind group", name)),
+			label:   Some(&*format!("{} texture bind group", name))
 		});
 
 		Self {
@@ -85,7 +85,7 @@ impl Texture {
 			sampler,
 			size,
 			bind_group: Rc::new(texture_bind_group),
-			bind_group_layout: Rc::new(texture_bind_group_layout),
+			bind_group_layout: Rc::new(texture_bind_group_layout)
 		}
 	}
 }

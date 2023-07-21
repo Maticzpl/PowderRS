@@ -7,13 +7,13 @@ use crate::rendering::render_utils::core::Core;
 
 pub enum ShaderType<'a> {
 	Vertex(&'a [wgpu::VertexBufferLayout<'static>]),
-	Fragment,
+	Fragment
 }
 
 pub struct Shader<'a> {
 	pub module:      &'a wgpu::ShaderModule,
 	pub entry:       &'a str,
-	pub shader_type: ShaderType<'a>,
+	pub shader_type: ShaderType<'a>
 }
 
 /// Rendering pipeline
@@ -27,7 +27,7 @@ pub struct Pipeline {
 	pub ind_buffer: wgpu::Buffer,
 	bindings: Vec<Rc<wgpu::BindGroup>>,
 	// Used in render loop
-	output: Cell<Option<wgpu::SurfaceTexture>>,
+	output: Cell<Option<wgpu::SurfaceTexture>>
 }
 
 pub struct PipelineDescriptor<'a, T: bytemuck::Pod> {
@@ -40,7 +40,7 @@ pub struct PipelineDescriptor<'a, T: bytemuck::Pod> {
 	pub ind_buffer:       wgpu::Buffer,
 	pub bindings:         Vec<Rc<wgpu::BindGroup>>,
 	pub bindings_layout:  Vec<Rc<wgpu::BindGroupLayout>>,
-	pub format:           wgpu::TextureFormat,
+	pub format:           wgpu::TextureFormat
 }
 
 impl Pipeline {
@@ -52,7 +52,7 @@ impl Pipeline {
 				.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 					label:    Some(&*format!("{} Uniform Buffer", descriptor.name)),
 					contents: bytemuck::cast_slice(&[descriptor.uniform_defaults]),
-					usage:    wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+					usage:    wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
 				});
 
 		let uniform_bind_group_layout =
@@ -65,11 +65,11 @@ impl Pipeline {
 						ty:         wgpu::BindingType::Buffer {
 							ty: wgpu::BufferBindingType::Uniform,
 							has_dynamic_offset: false,
-							min_binding_size: None,
+							min_binding_size: None
 						},
-						count:      None,
+						count:      None
 					}],
-					label:   Some(&*format!("{} Uniform Bind Group Layout", descriptor.name)),
+					label:   Some(&*format!("{} Uniform Bind Group Layout", descriptor.name))
 				});
 
 		let uniform_bind_group = descriptor
@@ -78,9 +78,9 @@ impl Pipeline {
 				layout:  &uniform_bind_group_layout,
 				entries: &[wgpu::BindGroupEntry {
 					binding:  0,
-					resource: uniform_buffer.as_entire_binding(),
+					resource: uniform_buffer.as_entire_binding()
 				}],
-				label:   Some(&*format!("{} Uniform Bind Group", descriptor.name)),
+				label:   Some(&*format!("{} Uniform Bind Group", descriptor.name))
 			});
 
 		descriptor
@@ -97,7 +97,7 @@ impl Pipeline {
 				.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 					label:                Some(&*format!("{} Pipeline Layout", descriptor.name)),
 					bind_group_layouts:   bindings_ref.as_slice(),
-					push_constant_ranges: &[],
+					push_constant_ranges: &[]
 				});
 
 		let mut vert: Option<Shader> = None;
@@ -132,7 +132,7 @@ impl Pipeline {
 		let targets = &[Some(wgpu::ColorTargetState {
 			format:     descriptor.format,
 			blend:      Some(wgpu::BlendState::ALPHA_BLENDING),
-			write_mask: wgpu::ColorWrites::ALL,
+			write_mask: wgpu::ColorWrites::ALL
 		})];
 
 		if let Some(vert) = vert {
@@ -145,15 +145,15 @@ impl Pipeline {
 						vertex:        wgpu::VertexState {
 							module:      vert.module,
 							entry_point: vert.entry,
-							buffers:     vert_buffers,
+							buffers:     vert_buffers
 						},
 						fragment:      match frag {
 							Some(shader) => Some(wgpu::FragmentState {
 								module: shader.module,
 								entry_point: shader.entry,
-								targets,
+								targets
 							}),
-							None => None,
+							None => None
 						},
 						primitive:     wgpu::PrimitiveState {
 							topology:           wgpu::PrimitiveTopology::TriangleList,
@@ -162,15 +162,15 @@ impl Pipeline {
 							cull_mode:          None, // Its not really needed for a 2D game :P
 							polygon_mode:       wgpu::PolygonMode::Fill,
 							unclipped_depth:    false,
-							conservative:       false,
+							conservative:       false
 						},
 						depth_stencil: None,
 						multisample:   wgpu::MultisampleState {
 							count: 1,
 							mask: !0,
-							alpha_to_coverage_enabled: false,
+							alpha_to_coverage_enabled: false
 						},
-						multiview:     None,
+						multiview:     None
 					});
 
 			Ok(Self {
@@ -185,9 +185,10 @@ impl Pipeline {
 				bindings: descriptor.bindings,
 				vert_num: Cell::new(descriptor.vert_num),
 
-				output: Cell::new(None),
+				output: Cell::new(None)
 			})
-		} else {
+		}
+		else {
 			Err(format!(
 				"{} Pipeline: Too many vertex shaders",
 				descriptor.name
@@ -197,7 +198,7 @@ impl Pipeline {
 
 	pub fn create_window_view(
 		&self,
-		rendering_core: &Core,
+		rendering_core: &Core
 	) -> Result<wgpu::TextureView, wgpu::SurfaceError> {
 		let output = rendering_core.surface.get_current_texture()?;
 		let view = output
@@ -212,7 +213,7 @@ impl Pipeline {
 		&'a self,
 		view: &'a wgpu::TextureView,
 		encoder: &'a mut wgpu::CommandEncoder,
-		transparent: bool,
+		transparent: bool
 	) -> Result<wgpu::RenderPass, wgpu::SurfaceError> {
 		// I really mean this abstraction layer is simple
 		let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -225,12 +226,12 @@ impl Pipeline {
 						r: 0.0,
 						g: 0.0,
 						b: 0.0,
-						a: if transparent { 0.0 } else { 1.0 },
+						a: if transparent { 0.0 } else { 1.0 }
 					}),
-					store: true,
-				},
+					store: true
+				}
 			})],
-			depth_stencil_attachment: None,
+			depth_stencil_attachment: None
 		});
 
 		Ok(render_pass)
@@ -251,7 +252,7 @@ impl Pipeline {
 		&self,
 		rendering_core: &mut Core,
 		encoder: wgpu::CommandEncoder,
-		present: bool,
+		present: bool
 	) {
 		rendering_core
 			.queue
