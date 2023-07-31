@@ -43,6 +43,10 @@ web-sys = { version = "0.3.64", features = [
     "Storage"
 ]}
 
+# Local crate for proc macros
+[dependencies.proc_macros]
+path = "lib/proc_macros"
+
 [profile.dev]
 opt-level = 0
 

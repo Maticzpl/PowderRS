@@ -1,12 +1,6 @@
-mod brck;
-mod dust;
-mod none;
-mod watr;
+use proc_macros::import_elements;
 
-pub use brck::EL_BRCK;
-pub use dust::EL_DUST;
-pub use none::EL_NONE;
-pub use watr::EL_WATR;
+import_elements!("src/simulation/elements");
 
 use crate::simulation::Particle;
 
@@ -28,7 +22,8 @@ pub struct Element {
 	pub col:       [u8; 4],
 	pub behaviour: ElementBehaviour,
 	pub density:   u16,
-	pub update:    Option<fn(pt: &mut Particle)>
+	pub update:    Option<fn(pt: &mut Particle)>,
+	pub default:   Particle
 }
 
 
@@ -44,6 +39,6 @@ impl ElementManager {
 	}
 
 	fn get_element(&self, name: &str) -> Option<&Element> {
-		self.elements.iter().filter(|x| x.name == name).next()
+		self.elements.iter().find(|x| x.name == name)
 	}
 }

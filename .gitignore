@@ -9,3 +9,5 @@ my_flamegraph.svg
 perf.data.old
 
 .idea/
+
+lib/proc_macros/target/

@@ -32,6 +32,7 @@ impl Simulation {
 		}
 	}
 
+	/// Adds particle 
 	pub fn add_part(&mut self, part: Particle) -> Option<usize> {
 		if part.p_type == 0 {
 			return None;
@@ -51,7 +52,7 @@ impl Simulation {
 				return Some(i);
 			}
 		}
-		return None;
+		None
 	}
 
 	pub fn kill_part(&mut self, id: usize) -> Result<(), ()> {
@@ -61,15 +62,15 @@ impl Simulation {
 		self.pmap[self.parts[id].x as usize + (self.parts[id].y as usize * XRES)] = None;
 		self.parts[id] = Particle::default();
 		self.part_count -= 1;
-		return Ok(());
+		Ok(())
 	}
 
 	pub fn get_part(&self, id: usize) -> &Particle {
-		return &self.parts[id];
+		&self.parts[id]
 	}
 
 	pub fn get_part_count(&self) -> usize {
-		return self.part_count;
+		self.part_count
 	}
 
 	pub fn get_pmap(&self, x: usize, y: usize) -> Option<&Particle> {

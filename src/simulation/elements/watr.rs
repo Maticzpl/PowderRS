@@ -1,13 +1,16 @@
 use crate::simulation::elements::Element;
 use crate::simulation::elements::ElementBehaviour::Fluid;
+use crate::simulation::Particle;
 
+const ID: u16 = 3;
 pub const EL_WATR: Element = Element {
-	id:        3,
+	id:        ID,
 	name:      "WATR",
 	col:       [0, 0, 255, 200],
 	behaviour: Fluid,
 	density:   5,
-	update:    None
+	update:    None,
+	default:   Particle::default().with_type(ID)
 };
 
 // pub fn gfx(sim : &Simulation, pt : &Particle) -> Color{
