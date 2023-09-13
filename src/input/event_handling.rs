@@ -178,7 +178,17 @@ pub fn handle_events(
 				input.cursor_pos = Vector2::new(cursor_x, cursor_y);
 
 				invoker.invoke(&mut sim, &mut ren, &mut gui, &mut input);
-				if !sim.paused {
+
+				let dt = ren.timings.time_since_tick.elapsed().as_micros();
+				if !sim.paused && dt >= 1000000 / 60 {
+					ren.timings.time_since_tick = Instant::now();
+
+					{
+						let tps = 1000000f64 / dt as f64;
+						let mut display = gui.fps_display.borrow_mut();
+						display.tps = tps;
+					}
+
 					invoker
 						.get_event("DoTick")
 						.unwrap()
@@ -207,14 +217,8 @@ pub fn handle_events(
 				input.prev_keys = input.keys.clone();
 				input.prev_mouse_buttons = input.mouse_buttons.clone();
 
-				let dt = ren.timings.time_since_tick.elapsed().as_micros();
-				ren.timings.time_since_tick = Instant::now();
-				let tps = 1000000f64 / dt as f64;
-
-				let mut display = gui.fps_display.borrow_mut();
 				// draw cap
-				if ren.timings.time_since_frame.elapsed().as_micros() + dt > (1000000 / 60) {
-					display.tps = tps;
+				if ren.timings.time_since_frame.elapsed().as_micros() > (1000000 / 60) {
 					let core = ren.rendering_core.borrow();
 					core.window.request_redraw();
 				}

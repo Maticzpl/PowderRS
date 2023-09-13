@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cgmath::{Vector2, Vector4, Zero};
+use rust_bresenham::Bresenham;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::dpi::PhysicalPosition;
@@ -17,8 +18,9 @@ use winit::dpi::PhysicalPosition;
 use crate::input::event_handling::{handle_events, InputData};
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::simulation::Particle;
+use crate::simulation::elements::EL_BRCK;
 use crate::simulation::sim::{Simulation, WINH, WINW};
+use crate::simulation::Particle;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
@@ -41,60 +43,30 @@ pub async fn run() {
 		cursor_pos:         Vector2::zero()
 	};
 
-	// for i in 0..100 {
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      i + 20,
-	// 		y:      i + 50,
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      i + 20,
-	// 		y:      i + 80
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      i + 120,
-	// 		y:      i + 50
-	// 	});
-	// 
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      i * 4,
-	// 		y:      450
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      (i * 4) + 1,
-	// 		y:      450
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      (i * 4) + 2,
-	// 		y:      450
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      (i * 4) + 3,
-	// 		y:      450
-	// 	});
-	// 
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      0,
-	// 		y:      450 - i
-	// 	});
-	// 	sim.add_part(Particle {
-	// 		p_type: 1,
-	// 		x:      400,
-	// 		y:      450 - i
-	// 	});
-	// }
-	// sim.add_part(Particle {
-	// 	p_type: 1,
-	// 	x:      (WINW / 2) as u32,
-	// 	y:      (WINH / 2) as u32
-	// });
+	for i in 0..100 {
+		sim.add_part(Particle::new(EL_BRCK.id, i + 20, i + 50));
+		sim.add_part(Particle::new(EL_BRCK.id, i + 20, i + 70));
+
+		sim.add_part(Particle::new(EL_BRCK.id, i + 150, i + 50));
+
+		let y = (WINH as f32 * 0.8) as u16;
+		sim.add_part(Particle::new(EL_BRCK.id, 10, y - i));
+		sim.add_part(Particle::new(EL_BRCK.id, 310, y - i));
+	}
+
+	for i in 0..300 {
+		sim.add_part(Particle::new(
+			EL_BRCK.id,
+			i + 10,
+			(WINH as f32 * 0.8) as u16
+		));
+	}
+
+	sim.add_part(Particle::new(
+		EL_BRCK.id,
+		(WINW / 2) as u16,
+		(WINH / 2) as u16
+	));
 
 	let rendering_core = ren.rendering_core.clone();
 	handle_events(event_loop, input, sim, ren, gui, rendering_core);

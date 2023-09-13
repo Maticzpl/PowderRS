@@ -21,19 +21,20 @@ regex = "1.7.1"
 winit = "0.28.6"
 env_logger = "0.10.0"
 log = "0.4.19"
-wgpu = "0.16.1"
-wgpu_glyph = "0.20.0"
+wgpu = "0.17.0"
+wgpu_glyph = "0.21.0"
 cfg-if = "1.0.0"
 pollster = "0.3.0"
 instant = "0.1.12"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 #serde = "1.0.171"
 #directories = "5.0.1"
+rust_bresenham = "0.1.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = "1.0.0"
-wgpu = { version = "0.16.1", features = ["webgl"]}
+wgpu = { version = "0.17.0", features = ["webgl"]}
 wasm-bindgen = "0.2.87"
 wasm-bindgen-futures = "0.4.30"
 web-sys = { version = "0.3.64", features = [

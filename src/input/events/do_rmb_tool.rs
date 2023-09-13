@@ -34,7 +34,7 @@ impl InputEvent for DoRmbTool {
 		let (x, y) = (input.cursor_pos.x, input.cursor_pos.y);
 
 		for i in 0..pow(size, 2) {
-			let val = sim.get_pmap_val(x - hs + i % size, y - hs + i / size);
+			let val = sim.get_id(x - hs + i % size, y - hs + i / size);
 			if let Some(part_id) = val {
 				sim.kill_part(part_id).expect("Tried to kill invalid part");
 			}

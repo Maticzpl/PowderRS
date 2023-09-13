@@ -22,7 +22,6 @@
             import init from "./pkg/powder_rs.js";
             init().then(() => {
                 console.log("WASM Loaded");
-                // TODO: better way to disable context menu
                 setTimeout(() => {
                     document.getElementsByTagName("canvas")[0].oncontextmenu = () => {
                         return false;

@@ -52,7 +52,6 @@ impl InputEvent for DoPan {
 		_gui: &mut GameGUI,
 		input: &mut InputData
 	) {
-		// TODO: Fix slight misalignment while panning and window maximized
 		let mut pan_started = self.pan_started.get();
 
 		if input.mouse_pressed(&MouseButton::Middle) {

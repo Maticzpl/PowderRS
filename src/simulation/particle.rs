@@ -7,18 +7,19 @@ pub struct Particle {
 	pub prop1:  u16, /* Dummy properties :P TODO: Come up with property names that make sense (impossible) */
 	pub prop2:  u16,
 	pub prop3:  u16,
-	pub x:      u16,
-	pub y:      u16,
-	pub vx:     u16,
-	pub vy:     u16
+	pub x:      f32,
+	pub y:      f32,
+	pub vx:     f32,
+	pub vy:     f32
 }
 
 impl Particle {
-	pub fn new(p_type: u16, x: u16, y: u16) -> Self {
+	//            am lazy ok?
+	pub fn new<T: Into<f32>>(p_type: u16, x: T, y: T) -> Self {
 		let mut v = Self::default();
 		v.p_type = p_type;
-		v.x = x;
-		v.y = y;
+		v.x = x.into();
+		v.y = y.into();
 		v
 	}
 
@@ -41,10 +42,10 @@ impl Particle {
 			prop1:  0,
 			prop2:  0,
 			prop3:  0,
-			x:      0,
-			y:      0,
-			vx:     0,
-			vy:     0
+			x:      0f32,
+			y:      0f32,
+			vx:     0f32,
+			vy:     0f32
 		}
 	}
 }
