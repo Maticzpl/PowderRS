@@ -26,7 +26,6 @@ pub struct Element {
 	pub default:   Particle
 }
 
-
 pub struct ElementManager {
 	pub elements: Vec<Element>
 }

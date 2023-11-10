@@ -1,17 +1,13 @@
 use std::cell::{Cell, RefCell};
-use std::intrinsics::size_of;
+use std::mem::size_of;
 use std::rc::Rc;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
+use glyphon::{FontSystem, Metrics, SwashCache, TextAtlas, TextRenderer};
 use wgpu::util::{DeviceExt, StagingBelt};
 use wgpu::{
-	include_wgsl, BufferAddress, Color, CommandEncoder, RenderPass, SurfaceError, TextureView,
-	TextureViewDescriptor
-};
-use wgpu_glyph::ab_glyph::FontRef;
-use wgpu_glyph::{
-	BuiltInLineBreaker, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign,
-	Layout, Section, Text, VerticalAlign
+	include_wgsl, BufferAddress, Color, CommandEncoder, MultisampleState, RenderPass, SurfaceError,
+	TextureFormat, TextureView, TextureViewDescriptor
 };
 
 use crate::rendering::gui::immediate_mode::gui_vert::GUIVert;
@@ -36,29 +32,51 @@ pub enum Bounds {
 	}
 }
 
-pub struct ImmediateGUI<'a> {
-	font: GlyphBrush<(), FontRef<'a>>,
-	rect_num: u32,
-	pipeline: Pipeline,
-	rendering_core: Rc<RefCell<Core>>,
-	pub belt: StagingBelt,
+pub struct ImmediateGUI {
+	font_system:   FontSystem,
+	font_cache:    SwashCache,
+	font_atlas:    TextAtlas,
+	font_renderer: TextRenderer,
+	font_buffer:   glyphon::Buffer,
+
+	rect_num:               u32,
+	pipeline:               Pipeline,
+	rendering_core:         Rc<RefCell<Core>>,
+	pub belt:               StagingBelt,
 	pub window_scale_ratio: Cell<Vector2<f32>>
 }
 
-impl ImmediateGUI<'_> {
+impl ImmediateGUI {
 	pub(crate) fn new(rendering_core: Rc<RefCell<Core>>) -> Self {
 		let core = rendering_core.borrow();
 
 		// Font
-		let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Regular.ttf");
-		let font = FontRef::try_from_slice(ttf).unwrap();
+		let font_system = FontSystem::new();
+		let font_cache = SwashCache::new();
+		let font_atlas = TextAtlas::new(&core.device, &core.queue, TextureFormat::Bgra8UnormSrgb);
+		let font_renderer = TextRenderer::new(
+			&mut font_atlas,
+			&core.device,
+			MultisampleState::default(),
+			None
+		);
+		let font_buffer = glyphon::Buffer::new(&mut font_system, Metrics::new(30.0, 42.0));
 
-		let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Bold.ttf");
-		let bold = FontRef::try_from_slice(ttf).unwrap();
+		font_buffer.set_size(
+			&mut font_system,
+			core.window_size.width as f32,
+			core.window_size.height as f32
+		);
 
-		let mut glyph_brush =
-			GlyphBrushBuilder::using_font(font).build(&core.device, core.surface_format);
-		let _bold_id = glyph_brush.add_font(bold);
+		// let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Regular.ttf");
+		// let font = FontRef::try_from_slice(ttf).unwrap();
+		//
+		// let ttf: &[u8] = include_bytes!("../../../../ChakraPetch-Bold.ttf");
+		// let bold = FontRef::try_from_slice(ttf).unwrap();
+		//
+		// let mut glyph_brush =
+		// 	GlyphBrushBuilder::using_font(font).build(&core.device, core.surface_format);
+		// let _bold_id = glyph_brush.add_font(bold);
 
 		const TRIG_CAP: usize = 1024usize;
 
@@ -121,12 +139,16 @@ impl ImmediateGUI<'_> {
 		drop(core);
 
 		Self {
-			font: glyph_brush,
 			rect_num: 0,
 			window_scale_ratio: Cell::new(Vector2::new(1.0, 1.0)),
 			pipeline: gui_pipeline,
 			belt: StagingBelt::new(1024),
-			rendering_core
+			rendering_core,
+			font_system,
+			font_cache,
+			font_atlas,
+			font_renderer,
+			font_buffer
 		}
 	}
 

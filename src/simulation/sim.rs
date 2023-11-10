@@ -1,5 +1,3 @@
-use std::intrinsics::floorf32;
-
 use rand::prelude::*;
 use rust_bresenham::Bresenham;
 
@@ -14,7 +12,6 @@ pub const YRES: usize = WINH;
 pub const XYRES: usize = XRES * YRES;
 
 type ParticleHandle = usize;
-
 pub struct Simulation {
 	pub parts:           Box<[Particle]>,
 	pub pmap:            Box<[Option<usize>]>,

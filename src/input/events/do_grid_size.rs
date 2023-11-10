@@ -1,4 +1,4 @@
-use winit::event::VirtualKeyCode;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState};
@@ -15,7 +15,7 @@ impl InputEvent for DoGridSize {
 
 	fn default_keys(&self) -> Vec<KeyEvent> {
 		vec![KeyEvent {
-			key:              AnyKey::Keyboard(VirtualKeyCode::G),
+			key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::KeyG)),
 			state:            KeyState::Held,
 			combine_previous: None
 		}]

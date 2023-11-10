@@ -3,7 +3,6 @@ use std::rc::{Rc, Weak};
 
 use cgmath::Vector2;
 use wgpu::Color;
-use wgpu_glyph::FontId;
 
 use crate::define_component;
 use crate::rendering::gui::components::label::Label;

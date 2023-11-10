@@ -228,10 +228,12 @@ impl Pipeline {
 						b: 0.0,
 						a: if transparent { 0.0 } else { 1.0 }
 					}),
-					store: true
+					store: wgpu::StoreOp::Store
 				}
 			})],
-			depth_stencil_attachment: None
+			depth_stencil_attachment: None,
+			timestamp_writes: None,
+			occlusion_query_set: None
 		});
 
 		Ok(render_pass)

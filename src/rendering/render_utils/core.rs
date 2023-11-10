@@ -30,13 +30,17 @@ impl Core {
 		}
 
 		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+			flags:                wgpu::InstanceFlags::default(),
+			gles_minor_version:   wgpu::Gles3MinorVersion::Automatic,
 			backends:             wgpu::Backends::all(),
 			dx12_shader_compiler: Default::default()
 		});
 
-		let window = WindowBuilder::new().build(event_loop).unwrap();
-		window.set_inner_size(window_size);
-		window.set_title(title);
+		let window = WindowBuilder::new()
+			.with_inner_size(window_size)
+			.with_title(title)
+			.build(event_loop)
+			.unwrap();
 
 		#[cfg(target_arch = "wasm32")]
 		{

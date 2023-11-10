@@ -1,5 +1,3 @@
-#![feature(core_intrinsics)]
-
 extern crate core;
 
 mod input;
@@ -10,7 +8,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cgmath::{Vector2, Vector4, Zero};
-use rust_bresenham::Bresenham;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::dpi::PhysicalPosition;
@@ -69,5 +66,5 @@ pub async fn run() {
 	));
 
 	let rendering_core = ren.rendering_core.clone();
-	handle_events(event_loop, input, sim, ren, gui, rendering_core);
+	handle_events(event_loop, input, sim, ren, gui, rendering_core).await;
 }

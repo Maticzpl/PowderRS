@@ -1,13 +1,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use wgpu_glyph::ab_glyph::Rect;
+use cgmath::{Vector2, Zero};
 
 use crate::rendering::gui::components::fps_display::FPSDisplay;
 use crate::rendering::gui::components::root::Root;
 use crate::rendering::gui::components::Component;
 use crate::rendering::gui::immediate_mode::gui_renderer::ImmediateGUI;
 use crate::rendering::render_utils::core::Core;
+use crate::rendering::Rect;
 
 pub struct GameGUI<'a> {
 	pub immediate_gui: ImmediateGUI<'a>,
@@ -33,7 +34,7 @@ impl GameGUI<'_> {
 			fps_display,
 			immediate_gui: gui,
 			grid_size: 0,
-			cursor: Rect::default(),
+			cursor: (Vector2::zero(), Vector2::zero()),
 			brush_size: 5,
 			gui_root: root
 		}

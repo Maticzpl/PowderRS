@@ -1,4 +1,5 @@
-use winit::event::{MouseButton, VirtualKeyCode};
+use winit::event::MouseButton;
+use winit::keyboard::PhysicalKey;
 
 use crate::input::event_handling::InputData;
 use crate::rendering::gui::game_gui::GameGUI;
@@ -22,7 +23,7 @@ pub enum LogicalOperator {
 }
 
 pub enum AnyKey {
-	Keyboard(VirtualKeyCode),
+	Keyboard(PhysicalKey),
 	Mouse(MouseButton)
 }
 

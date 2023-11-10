@@ -1,7 +1,4 @@
-use std::cell::Cell;
-
-use instant::Instant;
-use winit::event::VirtualKeyCode;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState, LogicalOperator};
@@ -19,22 +16,22 @@ impl InputEvent for DoTick {
 	fn default_keys(&self) -> Vec<KeyEvent> {
 		vec![
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::F),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::KeyF)),
 				state:            KeyState::Pressed,
 				combine_previous: None
 			},
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::V),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::KeyV)),
 				state:            KeyState::Pressed,
 				combine_previous: Some(LogicalOperator::Or)
 			},
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::N),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::KeyN)),
 				state:            KeyState::Pressed,
 				combine_previous: Some(LogicalOperator::Or)
 			},
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::J),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::KeyJ)),
 				state:            KeyState::Pressed,
 				combine_previous: Some(LogicalOperator::Or)
 			},

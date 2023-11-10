@@ -81,7 +81,7 @@ fn fs_main(
     var rng: f32 = rand(vec2(floor(in.texture_coord / pixel_size) * pixel_size));
     var dustMin: f32 = 0.85;
 
-    var gridBright: f32 = (1.0 / 255.0) * f32((i32(pos.x) + i32(pos.y)) % 2 == 0);
+    let gridBright: f32 = (1.0 / 255.0) * f32((i32(pos.x) + i32(pos.y)) % 2 == 0);
     if (unifs.grid != u32(0)) {
         var isLine: bool =
             (f32(u32(pos.x) % (unifs.grid - u32(1))) == 0.0) ||

@@ -55,7 +55,7 @@ pub struct Renderer {
 
 impl Renderer {
 	pub async fn new() -> (Self, EventLoop<()>) {
-		let event_loop = EventLoop::new();
+		let event_loop = EventLoop::new().unwrap();
 		let rendering_core = render_utils::Core::new(
 			"PowderRS",
 			PhysicalSize::new(WINW as u32, WINH as u32),
@@ -362,13 +362,13 @@ impl Renderer {
 	}
 
 	fn draw_cursor(&self, tex_data: &mut TextureData, gui: &GameGUI) {
-		let width = (gui.cursor.max.x - gui.cursor.min.x) as usize;
-		let height = (gui.cursor.max.y - gui.cursor.min.y) as usize;
+		let width = (gui.cursor.1.x - gui.cursor.0.x) as usize;
+		let height = (gui.cursor.1.y - gui.cursor.0.y) as usize;
 
 		for i in 0..(height) {
-			let x = gui.cursor.min.x as usize;
-			let rx = gui.cursor.min.x as usize + width - 1;
-			let y = gui.cursor.min.y as usize + i;
+			let x = gui.cursor.0.x as usize;
+			let rx = gui.cursor.0.x as usize + width - 1;
+			let y = gui.cursor.0.y as usize + i;
 			tex_data.set_pixel(
 				x,
 				y,
@@ -381,9 +381,9 @@ impl Renderer {
 			);
 		}
 		for i in 1..width - 1 {
-			let x = gui.cursor.min.x as usize + i;
-			let ry = gui.cursor.min.y as usize + height - 1;
-			let y = gui.cursor.min.y as usize;
+			let x = gui.cursor.0.x as usize + i;
+			let ry = gui.cursor.0.y as usize + height - 1;
+			let y = gui.cursor.0.y as usize;
 			tex_data.set_pixel(
 				x,
 				y,

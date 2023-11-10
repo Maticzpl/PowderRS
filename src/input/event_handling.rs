@@ -5,24 +5,24 @@ use std::rc::Rc;
 use cgmath::{Matrix4, Transform, Vector2, Vector3, Vector4};
 use instant::Instant;
 use log::error;
-use wgpu_glyph::ab_glyph::{Point, Rect};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::ElementState::Pressed;
 use winit::event::MouseScrollDelta::{LineDelta, PixelDelta};
-use winit::event::{Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event::{Event, MouseButton, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::keyboard::PhysicalKey;
 
 use crate::input::events::invoker::InputEventInvoker;
 use crate::rendering::gui::game_gui::GameGUI;
 use crate::rendering::renderer::Renderer;
-use crate::rendering::Core;
+use crate::rendering::{Core, Rect};
 use crate::simulation::sim::{Simulation, WINH, WINW, XRES, YRES};
 
 pub struct InputData {
 	pub mouse_buttons:      HashMap<MouseButton, bool>,
 	pub prev_mouse_buttons: HashMap<MouseButton, bool>,
-	pub keys:               HashMap<VirtualKeyCode, bool>,
-	pub prev_keys:          HashMap<VirtualKeyCode, bool>,
+	pub keys:               HashMap<PhysicalKey, bool>,
+	pub prev_keys:          HashMap<PhysicalKey, bool>,
 	pub mouse_pos:          PhysicalPosition<f64>,
 	pub scroll:             f32,
 
@@ -32,13 +32,13 @@ pub struct InputData {
 }
 
 impl InputData {
-	pub fn key_pressed(&self, key: &VirtualKeyCode) -> bool {
+	pub fn key_pressed(&self, key: &PhysicalKey) -> bool {
 		self.keys.get(key).is_some()
 	}
-	pub fn key_just_pressed(&self, key: &VirtualKeyCode) -> bool {
+	pub fn key_just_pressed(&self, key: &PhysicalKey) -> bool {
 		self.keys.get(key).is_some() && self.prev_keys.get(key).is_none()
 	}
-	pub fn key_just_released(&self, key: &VirtualKeyCode) -> bool {
+	pub fn key_just_released(&self, key: &PhysicalKey) -> bool {
 		self.keys.get(key).is_none() && self.prev_keys.get(key).is_some()
 	}
 	pub fn mouse_pressed(&self, button: &MouseButton) -> bool {
@@ -52,7 +52,7 @@ impl InputData {
 	}
 }
 
-pub fn handle_events(
+pub async fn handle_events(
 	event_loop: EventLoop<()>,
 	mut input: InputData,
 	mut sim: Simulation,
@@ -62,7 +62,7 @@ pub fn handle_events(
 ) {
 	let invoker = InputEventInvoker::new();
 
-	event_loop.run(move |event, _, flow| {
+	event_loop.run(move |event, event_loop_window_target| {
 		let core = rendering_core.borrow();
 		let win_id = core.window.id();
 		let size = core.window_size;
@@ -76,7 +76,7 @@ pub fn handle_events(
 			} if win_id == window_id => {
 				match ev {
 					WindowEvent::CloseRequested => {
-						flow.set_exit();
+						event_loop_window_target.exit();
 					}
 					WindowEvent::MouseInput { button, state, .. } => {
 						if state == Pressed {
@@ -104,41 +104,28 @@ pub fn handle_events(
 						input.mouse_pos.x = pos.x;
 						input.mouse_pos.y = pos.y;
 					}
-					WindowEvent::KeyboardInput {
-						input:
-							KeyboardInput {
-								virtual_keycode: Some(key),
-								state,
-								..
-							},
-						..
-					} => {
+					WindowEvent::KeyboardInput { event, .. } => {
 						// println!("{:?} k-s {}",key,_scan);
-						if state == Pressed {
-							input.keys.insert(key, true);
+						if event.state == Pressed {
+							input.keys.insert(event.physical_key, true);
 						}
 						else {
-							input.keys.remove(&key);
+							input.keys.remove(&event.physical_key);
 						}
 					}
 					WindowEvent::Resized { 0: size } => {
 						ren.resize(size);
 					}
-					WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-						ren.resize(*new_inner_size);
-					}
+					WindowEvent::RedrawRequested => match ren.render(&sim, &mut gui) {
+						Ok(_) => {}
+						Err(wgpu::SurfaceError::Lost) => ren.resize(size),
+						Err(wgpu::SurfaceError::OutOfMemory) => event_loop_window_target.exit(),
+						Err(e) => error!("{:?}", e)
+					},
 					_ => {}
 				}
 			}
-			Event::RedrawRequested(window_id) if window_id == win_id => {
-				match ren.render(&sim, &mut gui) {
-					Ok(_) => {}
-					Err(wgpu::SurfaceError::Lost) => ren.resize(size),
-					Err(wgpu::SurfaceError::OutOfMemory) => flow.set_exit(),
-					Err(e) => error!("{:?}", e)
-				}
-			}
-			Event::MainEventsCleared => {
+			Event::AboutToWait => {
 				// TODO: Clean this up
 				let win_size: PhysicalSize<u32>;
 				{
@@ -201,16 +188,16 @@ pub fn handle_events(
 				cursor_y = cursor_y.clamp(hs, YRES - hs - (gui.brush_size % 2) as usize);
 				input.cursor_pos = Vector2::new(cursor_x, cursor_y);
 
-				gui.cursor = Rect {
-					min: Point {
+				gui.cursor = (
+					Vector2 {
 						x: (cursor_x - hs) as f32,
 						y: (cursor_y - hs) as f32
 					},
-					max: Point {
+					Vector2 {
 						x: (cursor_x - hs) as f32 + gui.brush_size as f32,
 						y: (cursor_y - hs) as f32 + gui.brush_size as f32
 					}
-				};
+				);
 
 				input.scroll = 0.0;
 
@@ -223,7 +210,7 @@ pub fn handle_events(
 					core.window.request_redraw();
 				}
 			}
-			_ => *flow = ControlFlow::Poll
+			_ => ()
 		}
 	});
 }

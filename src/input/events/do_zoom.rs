@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, Vector3};
-use winit::event::VirtualKeyCode;
+use winit::keyboard::PhysicalKey;
 
 use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState};
@@ -16,7 +16,9 @@ impl InputEvent for DoZoom {
 
 	fn default_keys(&self) -> Vec<KeyEvent> {
 		vec![KeyEvent {
-			key:              AnyKey::Keyboard(VirtualKeyCode::LControl),
+			key:              AnyKey::Keyboard(PhysicalKey::Code(
+				winit::keyboard::KeyCode::ControlLeft
+			)),
 			state:            KeyState::Held,
 			combine_previous: None
 		}]

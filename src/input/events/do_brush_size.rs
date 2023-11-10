@@ -1,4 +1,4 @@
-use winit::event::VirtualKeyCode;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::input::event_handling::InputData;
 use crate::input::events::input_event::{AnyKey, InputEvent, KeyEvent, KeyState, LogicalOperator};
@@ -16,12 +16,12 @@ impl InputEvent for DoBrushSize {
 	fn default_keys(&self) -> Vec<KeyEvent> {
 		vec![
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::LShift),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::ShiftLeft)),
 				state:            KeyState::Held,
 				combine_previous: None
 			},
 			KeyEvent {
-				key:              AnyKey::Keyboard(VirtualKeyCode::LShift),
+				key:              AnyKey::Keyboard(PhysicalKey::Code(KeyCode::ShiftLeft)),
 				state:            KeyState::NotHeld,
 				combine_previous: Some(LogicalOperator::Or)
 			},
@@ -37,7 +37,7 @@ impl InputEvent for DoBrushSize {
 	) {
 		if input.scroll != 0.0 {
 			let mut speed = 1;
-			if input.key_pressed(&VirtualKeyCode::LShift) {
+			if input.key_pressed(&PhysicalKey::Code(KeyCode::ShiftLeft)) {
 				speed = 2;
 			}
 			gui.brush_size =
